@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.photo-container {
+    flex-basis: calc(25% - 4px);
+}
+
+.photo-container:after {
+    content: '';
+    display: block;
+    padding-bottom: 100%;
+}
