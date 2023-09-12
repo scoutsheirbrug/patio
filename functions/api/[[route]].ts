@@ -33,6 +33,7 @@ type Album = {
 	name: string,
 	cover?: string,
 	timestamp: string,
+	public: boolean,
 	photos: Photo[],
 }
 
@@ -63,45 +64,42 @@ const getLibrary: MiddlewareHandler<{
 	if (!libraryId || !libraryId.match(/^[A-Za-z0-9_-]+$/)) {
 		return c.text('Expected a valid "library" search parameter', 400)
 	}
-	const libraryData = await c.env.KV.get(`library-${libraryId}`)
-	if (libraryData === null) {
-		return c.text(`Library "${libraryId}" not found`, 404)
-	}
-	const library = JSON.parse(libraryData)
-	c.set('library', library)
-	const secret = c.req.query('secret')
-	c.set('authorized', library.secret === undefined || secret === library.secret)
-	await next()
-}
-
-app.get('/library/:id', async (c) => {
-	const libraryId = c.req.param('id')
 	let libraryData = await c.env.KV.get(`library-${libraryId}`)
 	if (libraryData === null && libraryId === DEFAULT_LIBRARY) {
 		libraryData = JSON.stringify({
 			id: DEFAULT_LIBRARY,
 			secret: c.env.DEFAULT_SECRET,
-			albums: [],
 			timestamp: new Date().toISOString(),
+			albums: [],
 		})
 		await c.env.KV.put(`library-${libraryId}`, libraryData)
 	}
 	if (libraryData === null) {
 		return c.text(`Library "${libraryId}" not found`, 404)
 	}
-	const library = JSON.parse(libraryData)
-	delete library.secret
-	return c.json(library)
-})
+	const library = JSON.parse(libraryData) as Library
+	c.set('library', library)
+	const secret = c.req.query('secret')
+	const authorized = library.secret === undefined || secret === library.secret
+	c.set('authorized', authorized)
+	if (!authorized) {
+		library.albums = library.albums.filter(a => a.public)
+	}
+	await next()
+}
 
-app.post('/verify', getLibrary, async (c) => {
-	const { authorized } = c.var
-	return c.json({ authorized })
+app.get('/library', getLibrary, async (c) => {
+	const { library, authorized } = c.var
+	let result: Omit<Library, 'secret'> & { secret?: string, authorized?: boolean } = library
+	result.authorized = authorized
+	delete result.secret
+	return c.json(result)
 })
 
 const postAlbumSchema = z.object({
 	name: z.string(),
 	timestamp: z.string().optional(),
+	public: z.boolean().optional(),
 })
 app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) => {
 	const { library, authorized } = c.var
@@ -116,8 +114,9 @@ app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) =>
 	const album = {
 		id: albumId,
 		name: body.name,
-		photos: [],
 		timestamp: body.timestamp ?? new Date().toISOString(),
+		public: body.public ?? false,
+		photos: [],
 	}
 	library.albums.push(album)
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
@@ -148,6 +147,9 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		album.cover = body.cover
 	} else if (body.cover === null) {
 		delete album.cover
+	}
+	if (body.public !== undefined) {
+		album.public = body.public
 	}
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
 	return c.json(album)

@@ -4,16 +4,18 @@ const API_URL = '/api'
 
 export interface ApiLibrary {
 	id: string,
-	albums: ApiAlbum[],
 	timestamp: string,
+	authorized: boolean,
+	albums: ApiAlbum[],
 }
 
 export interface ApiAlbum {
 	id: string,
 	name: string,
-	photos: ApiPhoto[],
 	cover: string | null,
+	public: boolean,
 	timestamp: string,
+	photos: ApiPhoto[],
 }
 
 export interface ApiPhoto {
@@ -22,17 +24,9 @@ export interface ApiPhoto {
 	timestamp: string,
 }
 
-export async function getLibrary(libraryId: string) {
-	const response = await fetch(`${API_URL}/library/${libraryId}`)
+export async function getLibrary(libraryId: string, secret: string) {
+	const response = await fetch(`${API_URL}/library?library=${libraryId}&secret=${secret}`)
 	return await response.json() as ApiLibrary
-}
-
-export async function verifySecret(libraryId: string, secret: string) {
-	const response = await fetch(`${API_URL}/verify?library=${libraryId}&secret=${secret}`, {
-		method: 'POST',
-	})
-	const data = await response.json() as { authorized: boolean }
-	return data.authorized
 }
 
 export async function postAlbum(libraryId: string, secret: string, albumName: string) {

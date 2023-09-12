@@ -1,6 +1,6 @@
 import { ComponentChildren, createContext } from 'preact'
 import { useCallback, useContext, useEffect, useState } from 'preact/hooks'
-import { ApiAlbum, ApiLibrary, getLibrary, verifySecret } from '../api'
+import { ApiAlbum, ApiLibrary, getLibrary } from '../api'
 
 const DEFAULT_LIBRARY_ID = 'scoutsheirbrug'
 
@@ -34,7 +34,6 @@ type Props = {
 export function LibraryProvider({ children }: Props) {
 	const [libraryId, setLibraryId] = useState<string>(localStorage.getItem('library_id') ?? DEFAULT_LIBRARY_ID)
 	const [secret, setSecret] = useState<string>(localStorage.getItem('secret') ?? '')
-	const [authorized, setAutorized] = useState(false)
 	const [library, setLibrary] = useState<Partial<ApiLibrary> & { id: string }>({ id: libraryId })
 
 	const changeLibraryId = useCallback((libraryId: string) => {
@@ -48,15 +47,9 @@ export function LibraryProvider({ children }: Props) {
 	}, [])
 
 	useEffect(() => {
-		getLibrary(libraryId)
+		getLibrary(libraryId, secret)
 			.then(library => setLibrary(library))
 			.catch(() => setLibrary({ id: libraryId }))
-	}, [libraryId])
-
-	useEffect(() => {
-		verifySecret(libraryId, secret)
-			.then(result => setAutorized(result))
-			.catch(() => setAutorized(false))
 	}, [libraryId, secret])
 
 	const changeLibrary = useCallback((changes: Partial<ApiLibrary>) => {
@@ -70,10 +63,12 @@ export function LibraryProvider({ children }: Props) {
 	}, [library])
 
 	const refresh = useCallback(() => {
-		getLibrary(libraryId)
+		getLibrary(libraryId, secret)
 			.then(library => setLibrary(library))
 			.catch(() => setLibrary({ id: libraryId }))
-	}, [])
+	}, [libraryId, secret])
+
+	const authorized = library.authorized ?? false
 
 	const value: LibraryContext = {
 		libraryId,

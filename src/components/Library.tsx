@@ -58,7 +58,10 @@ export function Library({ onSelect }: Props) {
           <div class="absolute w-8 h-8 p-2 top-[2px] right-[2px] fill-red-800 cursor-pointer hidden group-hover:block bg-gray-200 hover:bg-gray-300 rounded-lg" onClick={(e) => { onDeleteAlbum(a.id); e.stopPropagation() }}>{Icons.trash}</div>
         </>}
       </div>
-      <EditableText class="font-bold text-2xl mt-1 w-full" value={a.name} onChange={name => onRenameAlbum(a.id, name)} editable={authorized} />
+      <div class="flex items-center [&>svg]:shrink-0 [&>svg]:mr-1 mt-1">
+        {!a.public && Icons.lock}
+        <EditableText class="font-bold text-2xl w-full" value={a.name} onChange={name => onRenameAlbum(a.id, name)} editable={authorized} />
+      </div>
       <span>{a.photos.length} Foto's</span>
     </div>)}
     {authorized && <div class="cursor-pointer" onClick={newName !== undefined ? undefined : startEditing}>

@@ -18,6 +18,12 @@ export function Album({ album }: Props) {
 		changeAlbum(album.id, newAlbum)
 	}, [album, changeAlbum])
 
+	const onChangeVisibility = useCallback(async (isPublic: boolean) => {
+		if (isPublic === album.public) return
+		const newAlbum = await patchAlbum(library.id, secret, album.id, { public: isPublic })
+		changeAlbum(album.id, newAlbum)
+	}, [album, changeAlbum])
+
 	const onChangeCover = useCallback(async (id: string | null) => {
 		const newAlbum = await patchAlbum(library.id, secret, album.id, { cover: id })
 		if (!newAlbum.cover) newAlbum.cover = null
@@ -39,8 +45,14 @@ export function Album({ album }: Props) {
 	}, [fileInput, album, changeAlbum])
 
 	return <div>
-		<EditableText class="font-bold text-2xl" value={album.name} onChange={onRename} editable={authorized} />
-		<span>{album.photos.length} Foto's</span>
+		<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
+		<div class="flex gap-4 mt-1">
+			<span>{album.photos.length} Foto's</span>
+			<button class="flex items-center" onClick={() => onChangeVisibility(!album.public)}>
+				{album.public ? Icons.globe : Icons.lock}
+				<span class="ml-1">{album.public ? 'Openbaar' : 'Verborgen'}</span>
+			</button>
+		</div>
 		<div class="flex flex-wrap gap-1 mt-4">
 			{album.photos.map(p => <div key={p.id} class="photo-container relative group">
 				<img class="absolute w-full h-full object-cover bg-gray-100" src={getPhotoUrl(p.id)} />
