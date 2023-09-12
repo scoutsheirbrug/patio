@@ -7,6 +7,7 @@ const DEFAULT_LIBRARY_ID = 'scoutsheirbrug'
 export type Secret = string
 
 export type LibraryContext = {
+	libraryId: string,
 	library: Partial<ApiLibrary> & { id: string },
 	secret: Secret,
 	authorized: boolean,
@@ -47,15 +48,15 @@ export function LibraryProvider({ children }: Props) {
 	}, [])
 
 	useEffect(() => {
-		getLibrary(libraryId).then(library => {
-			setLibrary(library)
-		})
+		getLibrary(libraryId)
+			.then(library => setLibrary(library))
+			.catch(() => setLibrary({ id: libraryId }))
 	}, [libraryId])
 
 	useEffect(() => {
-		verifySecret(libraryId, secret).then(result => {
-			setAutorized(result)
-		})
+		verifySecret(libraryId, secret)
+			.then(result => setAutorized(result))
+			.catch(() => setAutorized(false))
 	}, [libraryId, secret])
 
 	const changeLibrary = useCallback((changes: Partial<ApiLibrary>) => {
@@ -69,14 +70,15 @@ export function LibraryProvider({ children }: Props) {
 	}, [library])
 
 	const refresh = useCallback(() => {
-		getLibrary(libraryId).then(library => {
-			setLibrary(library)
-		})
+		getLibrary(libraryId)
+			.then(library => setLibrary(library))
+			.catch(() => setLibrary({ id: libraryId }))
 	}, [])
 
 	const value: LibraryContext = {
-		library,
+		libraryId,
 		secret,
+		library,
 		authorized,
 		changeLibraryId,
 		changeSecret,

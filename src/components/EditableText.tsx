@@ -27,11 +27,13 @@ export function EditableText({ value, onChange, editable, class: clazz }: Props)
 		}
 	}, [newValue, onChange])
 
-	return <div class={`group mt-1 flex items-center ${editable ? 'cursor-pointer' : ''}`} onClick={newValue !== undefined || editable === false ? undefined : startEditing}>
+	return <div class={`group ${editable ? 'cursor-pointer' : ''}`} onClick={newValue !== undefined || editable === false ? undefined : startEditing}>
 		{newValue === undefined
 			? <>
-				<span class={`border-b border-transparent ${clazz}`}>{value}</span>
-				{editable && <div class="hidden group-hover:block">{Icons.pencil}</div>}
+				<div class={`border-b border-transparent ${clazz}`}>
+					{value}
+					{editable && <span class="hidden group-hover:inline [&>*]:inline [&>*]:mb-1">{Icons.pencil}</span>}
+				</div>
 			</>
 			: <input ref={inputRef} class={`outline-none border-b border-gray-300 bg-gray-50 ${clazz}`} type="text" value={newValue} onInput={(e) => setNewValue((e.target as HTMLInputElement).value)} onKeyDown={onEnter} onBlur={onEnter} />}
 	</div>
