@@ -88,15 +88,16 @@ export function Album({ album }: Props) {
 		setDragId(id)
 	}, [selectedIds])
 
-	const dragMove = useCallback((e: MouseEvent) => {
+	const dragMove = useCallback((e: MouseEvent | TouchEvent) => {
 		if (dragId === undefined || dragArea.current === null) {
 			return
 		}
 		const area = dragArea.current.getBoundingClientRect()
 		const tiles = Number(document.body.style.getPropertyValue('--photo-grid'))
 		const tileSize = area.width / tiles
-		const x = Math.floor((e.clientX - area.x) / tileSize)
-		const y = Math.floor((e.clientY - area.y) / tileSize)
+		const point = e instanceof MouseEvent ? e : e.touches[0]
+		const x = Math.floor((point.clientX - area.x) / tileSize)
+		const y = Math.floor((point.clientY - area.y) / tileSize)
 		const targetIndex = x + y * tiles
 		setDragTarget(Math.max(0, Math.min(album.photos.length - 1, targetIndex)))
 		if (!selectedIds.includes(dragId)) {
@@ -117,7 +118,7 @@ export function Album({ album }: Props) {
 	}, [album, selectedIds, dragId, dragTarget])
 
 	useEffect(() => {
-		const onMouseUp = (e: MouseEvent) => {
+		const onMouseUp = (e: MouseEvent | TouchEvent) => {
 			if (dragSortedPhotos !== album.photos) {
 				patchAlbum(library.id, secret, album.id, { photos: dragSortedPhotos })
 					.then(a => changeAlbum(album.id, a))
@@ -142,8 +143,10 @@ export function Album({ album }: Props) {
 		}
 		if (authorized) {
 			window.addEventListener('mouseup', onMouseUp)
+			window.addEventListener('touchend', onMouseUp)
 			return () => {
 				window.removeEventListener('mouseup', onMouseUp)
+				window.removeEventListener('touchend', onMouseUp)
 			}
 		}
 	}, [library, secret, authorized, album, selectedIds, dragId, dragSortedPhotos])
@@ -187,7 +190,7 @@ export function Album({ album }: Props) {
 				</button>
 			</>}
 		</div>
-		<div class="flex gap-4 mt-1 flex-wrap" onMouseUp={e => e.stopPropagation()}>
+		<div class="flex gap-4 mt-1 flex-wrap" onMouseUp={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
 			<span>{album.photos.length} Foto's</span>
 			{authorized && <>
 				<button class="flex items-center hover:underline" onClick={() => setSelectedIds(selectedIds.length === 0 ? album.photos.map(p => p.id) : [])}>
@@ -204,8 +207,8 @@ export function Album({ album }: Props) {
 				</button>}
 			</>}
 		</div>
-		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={authorized ? dragMove : undefined}>
-			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined}>
+		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
+			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
 				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={getPhotoUrl(p.id)} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
 			</div>)}
