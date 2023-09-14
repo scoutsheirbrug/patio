@@ -1,32 +1,13 @@
 import { useCallback, useRef, useState } from 'preact/hooks'
-import { deleteAlbum, getPhotoUrl, patchAlbum, postAlbum } from '../api'
+import { getPhotoUrl, postAlbum } from '../api'
 import { useLibrary } from '../hooks/useLibrary'
-import { EditableText } from './EditableText'
 import { Icons } from './Icons'
 
 type Props = {
   onSelect: (id: string) => void,
 }
 export function Library({ onSelect }: Props) {
-  const { library, secret, authorized, changeLibrary, changeAlbum } = useLibrary()
-
-	const onRenameAlbum = useCallback(async (id: string, name: string) => {
-    const album = library.albums?.find(a => a.id === id)
-    if (!album || name === album.name || name.length === 0) return
-		const newAlbum = await patchAlbum(library.id, secret, album.id, { name })
-		changeAlbum(album.id, newAlbum)
-	}, [library, changeAlbum])
-
-  const onDeleteAlbum = useCallback(async (id: string) => {
-    const album = library.albums?.find(a => a.id === id)
-    if (album === undefined) return
-    if (album.photos.length > 0) {
-      const confirmed = confirm(`Weet je zeker dat je "${album.name}" en alle ${album.photos.length} foto's definitief wilt verwijderen?`)
-      if (!confirmed) return
-    }
-    await deleteAlbum(library.id, secret, id)
-    changeLibrary({ albums: library.albums?.filter(a => a.id !== id) ?? [] })
-  }, [library])
+  const { library, secret, authorized, changeLibrary } = useLibrary()
 
   const addRef = useRef<HTMLInputElement>(null)
   const [newName, setNewName] = useState<string>()
@@ -54,13 +35,10 @@ export function Library({ onSelect }: Props) {
         {a.cover
           ? <img class="absolute w-full h-full rounded-lg object-cover" src={getPhotoUrl(a.cover)} />
           : <div class="absolute w-full h-full bg-gradient-to-br from-gray-200 to-slate-300 rounded-lg" />}
-        {authorized && <>
-          <div class="absolute w-8 h-8 p-2 top-[2px] right-[2px] fill-red-800 cursor-pointer hidden group-hover:block bg-gray-200 hover:bg-gray-300 rounded-lg" onClick={(e) => { onDeleteAlbum(a.id); e.stopPropagation() }}>{Icons.trash}</div>
-        </>}
       </div>
       <div class="flex items-center [&>svg]:shrink-0 [&>svg]:mr-1 mt-1">
         {!a.public && Icons.lock}
-        <EditableText class="font-bold text-2xl w-full" value={a.name} onChange={name => onRenameAlbum(a.id, name)} editable={authorized} />
+        <span class="font-bold text-2xl w-full">{a.name}</span>
       </div>
       <span>{a.photos.length} Foto's</span>
     </div>)}

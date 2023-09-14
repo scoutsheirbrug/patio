@@ -147,10 +147,18 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		album.timestamp = body.timestamp
 	}
 	if (body.photos !== undefined) {
+		const deletedPhotos = album.photos.filter(p => !body.photos!.find(q => q.id === p.id))
 		album.photos = body.photos.flatMap(p => {
 			const photo = album.photos.find(q => q.id === p.id)
 			return photo === undefined ? [] : [photo]
 		})
+		for (const photo of deletedPhotos) {
+			if (album.cover === photo.id) {
+				album.cover = undefined
+			}
+			await c.env.BUCKET.delete(photo.id)
+			await c.env.BUCKET.delete(`thumb_${photo.id}`)
+		}
 	}
 	if (body.cover && album.photos.some(p => p.id === body.cover)) {
 		album.cover = body.cover
@@ -253,7 +261,7 @@ app.delete('/photo/:id', getLibrary, async (c) => {
 		return c.text(`Photo "${photoId}" not found in album`, 404)
 	}
 	album.photos.splice(photoIndex, 1)
-	if (album.cover) {
+	if (album.cover === photoId) {
 		album.cover = undefined
 	}
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))

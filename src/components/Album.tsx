@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { ApiAlbum, deletePhoto, getPhotoUrl, patchAlbum, postPhoto } from '../api'
+import { ApiAlbum, deleteAlbum, getPhotoUrl, patchAlbum, postPhoto } from '../api'
 import { useLibrary } from '../hooks/useLibrary'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
@@ -8,7 +8,7 @@ type Props = {
 	album: ApiAlbum,
 }
 export function Album({ album }: Props) {
-	const { library, secret, authorized, changeAlbum } = useLibrary()
+	const { library, secret, authorized, changeLibrary, changeAlbum } = useLibrary()
 
 	const fileInput = useRef<HTMLInputElement>(null)
 
@@ -24,15 +24,29 @@ export function Album({ album }: Props) {
 		changeAlbum(album.id, newAlbum)
 	}, [library, secret, album, changeAlbum])
 
+  const onDeleteAlbum = useCallback(async () => {
+    if (album.photos.length > 0) {
+      const confirmed = confirm(`Weet je zeker dat je "${album.name}" en alle ${album.photos.length} foto's definitief wilt verwijderen?`)
+      if (!confirmed) return
+    }
+    await deleteAlbum(library.id, secret, album.id)
+    changeLibrary({ albums: library.albums?.filter(a => a.id !== album.id) ?? [] })
+  }, [library, secret, album, changeLibrary])
+
 	const onChangeCover = useCallback(async (id: string | null) => {
 		const newAlbum = await patchAlbum(library.id, secret, album.id, { cover: id })
 		if (!newAlbum.cover) newAlbum.cover = null
 		changeAlbum(album.id, newAlbum)
 	}, [library, secret, album, changeAlbum])
 
-	const onDeletePhoto = useCallback(async (id: string) => {
-		await deletePhoto(library.id, secret, album.id, id)
-		changeAlbum(album.id, { photos: album.photos.filter(p => p.id !== id) })
+	const onDeletePhotos = useCallback(async (ids: string[]) => {
+		const remainingPhotos = album.photos.filter(p => !ids.includes(p.id))
+		if (ids.length > 1) {
+			const confirmed = confirm(`Weet je zeker dat je ${album.photos.length} foto's definitief wilt verwijderen?`)
+      if (!confirmed) return
+		}
+		await patchAlbum(library.id, secret, album.id, { photos: remainingPhotos })
+		changeAlbum(album.id, { photos: remainingPhotos, cover: remainingPhotos.find(p => p.id === album.cover) ? album.cover : null })
 	}, [library, secret, album, changeAlbum])
 
 	const onUploadPhoto = useCallback(async () => {
@@ -41,22 +55,22 @@ export function Album({ album }: Props) {
 		const file = fileInput.current?.files?.[0]
 		if (!file) return
 		const photo = await postPhoto(library.id, secret, album.id, file)
-		changeAlbum(album.id, { photos: [...album.photos, photo] })
+		changeAlbum(album.id, { photos: [...album.photos, photo], cover: !album.cover ? photo.id : album.cover })
 	}, [fileInput, library, secret, album, changeAlbum])
 
 	const dragArea = useRef<HTMLDivElement>(null)
-	const dragOrigin = useRef<[number, number]>()
-	const dragCandidate = useRef<string>()
+	const [selectedIds, setSelectedIds] = useState<string[]>([])
 	const [dragId, setDragId] = useState<string>()
 	const [dragTarget, setDragTarget] = useState<number>()
 
-	const dragStart = useCallback((id: string, e: MouseEvent) => {
+	const dragStart = useCallback((id: string) => {
 		setDragId(id)
-		dragOrigin.current = [e.clientX, e.clientY]
-	}, [])
+	}, [selectedIds])
 
 	const dragMove = useCallback((e: MouseEvent) => {
-		if (dragArea.current === null || dragOrigin.current === undefined) return
+		if (dragId === undefined || dragArea.current === null) {
+			return
+		}
 		const area = dragArea.current.getBoundingClientRect()
 		const tiles = 4
 		const tileSize = area.width / tiles
@@ -64,55 +78,94 @@ export function Album({ album }: Props) {
 		const y = Math.floor((e.clientY - area.y) / tileSize)
 		const targetIndex = x + y * tiles
 		setDragTarget(Math.max(0, Math.min(album.photos.length - 1, targetIndex)))
-	}, [album])
+		if (!selectedIds.includes(dragId)) {
+			setSelectedIds([dragId])
+		}
+	}, [album, selectedIds, dragId])
 
 	const dragSortedPhotos = useMemo(() => {
 		if (dragId === undefined || dragTarget === undefined) {
 			return album.photos
 		}
-		const originIndex = album.photos.findIndex(p => p.id === dragId)
-		if (originIndex === -1 || originIndex === dragTarget) {
-			return album.photos
-		}
-		const copy = album.photos.slice()
-		const moved = copy.splice(originIndex, 1)
-		copy.splice(dragTarget, 0, moved[0])
-		return copy
-	}, [album, dragId, dragTarget])
+		const dragSource = album.photos.findIndex(p => p.id === dragId)
+		const movingIds = [...selectedIds, dragId]
+		const beforePhotos = album.photos.filter((p, i) => !movingIds.includes(p.id) && i < dragTarget + (dragTarget > dragSource ? 1 : 0))
+		const selectedPhotos = album.photos.filter(p => movingIds.includes(p.id))
+		const afterPhotos = album.photos.filter((p, i) => !movingIds.includes(p.id) && i > dragTarget - (dragTarget < dragSource ? 1 : 0))
+		return [...beforePhotos, ...selectedPhotos, ...afterPhotos]
+	}, [album, selectedIds, dragId, dragTarget])
 
 	useEffect(() => {
-		const dragEnd = () => {
+		const onMouseUp = (e: MouseEvent) => {
 			if (dragSortedPhotos !== album.photos) {
 				patchAlbum(library.id, secret, album.id, { photos: dragSortedPhotos })
 					.then(a => changeAlbum(album.id, a))
 				changeAlbum(album.id, { photos: dragSortedPhotos }) // optimistic update
+			} else if (dragId === undefined) {
+				setSelectedIds([])
+			} else {
+				if (e.ctrlKey) {
+					setSelectedIds(selectedIds.includes(dragId) ? selectedIds.filter(id => id !== dragId) : [...selectedIds, dragId])
+				} else if (e.shiftKey) {
+					const firstIndex = album.photos.findIndex(p => p.id === selectedIds[0])
+					const lastIndex = album.photos.findIndex(p => p.id === dragId)
+					const toSelect = album.photos.slice(Math.min(firstIndex, lastIndex), Math.max(firstIndex, lastIndex) + 1).map(p => p.id).filter(id => !selectedIds.includes(id))
+					setSelectedIds([...selectedIds, ...toSelect])
+				} else {
+					setSelectedIds([dragId])
+				}
 			}
-			dragCandidate.current = undefined
-			dragOrigin.current = undefined
 			setDragId(undefined)
 			setDragTarget(undefined)
 		}
-		window.addEventListener('mouseup', dragEnd)
-		return () => window.removeEventListener('mouseup', dragEnd)
-	}, [library, secret, album, dragSortedPhotos])
+		if (authorized) {
+			window.addEventListener('mouseup', onMouseUp)
+			return () => {
+				window.removeEventListener('mouseup', onMouseUp)
+			}
+		}
+	}, [library, secret, authorized, album, selectedIds, dragId, dragSortedPhotos])
+
+	useEffect(() => {
+		const deletedIds = selectedIds.filter(id => !album.photos.find(p => p.id === id))
+		if (deletedIds.length > 0) {
+			setSelectedIds(selectedIds.filter(id => !deletedIds.includes(id)))
+		}
+	}, [album, selectedIds])
 
 	return <div>
-		<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
-		<div class="flex gap-4 mt-1">
-			<span>{album.photos.length} Foto's</span>
-			<button class="flex items-center" onClick={() => onChangeVisibility(!album.public)}>
-				{album.public ? Icons.globe : Icons.lock}
-				<span class="ml-1">{album.public ? 'Openbaar' : 'Verborgen'}</span>
-			</button>
+		<div class="flex gap-4">
+			<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
+			{authorized && <>
+				<button class="flex items-center hover:underline ml-auto" onClick={() => onChangeVisibility(!album.public)}>
+					{album.public ? Icons.globe : Icons.lock}
+					<span class="ml-1">{album.public ? 'Openbaar' : 'Verborgen'}</span>
+				</button>
+				<button class="flex items-center whitespace-nowrap hover:underline text-red-800 fill-red-800" onClick={onDeleteAlbum}>
+					{Icons.trash}
+					<span class="ml-1">Verwijder album</span>
+				</button>
+			</>}
 		</div>
-		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={dragMove}>
-			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative group" onMouseDown={e => dragStart(p.id, e)}>
-				<img class={`absolute w-full h-full select-none object-cover bg-gray-100 transition-transform ${p.id === dragId ? 'scale-90' : ''}`} src={getPhotoUrl(p.id)} />
-				{p.id === dragId && <div class="absolute w-full h-full bg-white bg-opacity-50" />}
-				{authorized && <>
-					<div class="absolute w-8 h-8 p-2 top-[2px] right-[36px] fill-gray-800 cursor-pointer hidden group-hover:block bg-gray-200 hover:bg-gray-300 rounded-lg" onClick={() => onChangeCover(album.cover === p.id ? null : p.id)} onMouseDown={e => e.stopPropagation()}>{album.cover === p.id ? Icons.pin_slash : Icons.pin}</div>
-					<div class="absolute w-8 h-8 p-2 top-[2px] right-[2px] fill-red-800 cursor-pointer hidden group-hover:block bg-gray-200 hover:bg-gray-300 rounded-lg" onClick={() => onDeletePhoto(p.id)} onMouseDown={e => e.stopPropagation()}>{Icons.trash}</div>
-				</>}
+		<div class="flex gap-4 mt-1 flex-wrap" onMouseUp={e => e.stopPropagation()}>
+			<span>{album.photos.length} Foto's</span>
+			<button class="flex items-center hover:underline" onClick={() => setSelectedIds(selectedIds.length === 0 ? album.photos.map(p => p.id) : [])}>
+				{selectedIds.length === 0 ? Icons.issue_closed : Icons.x_circle}
+				<span class="ml-1">{selectedIds.length === 0 ? 'Selecteer alles' : 'Deselecteer alles'}</span>
+			</button>
+			{selectedIds.length === 1 && <button class="flex items-center hover:underline" onClick={() => onChangeCover(album.cover === selectedIds[0] ? null : selectedIds[0])}>
+				{album.cover === selectedIds[0] ? Icons.pin_slash : Icons.pin}
+				<span class="ml-1">{album.cover === selectedIds[0] ? 'Verwijder albumcover' : 'Maak albumcover'}</span>
+			</button>}
+			{selectedIds.length > 0 && <button class="flex items-center hover:underline text-red-800 fill-red-800" onClick={() => onDeletePhotos(selectedIds)}>
+				{Icons.trash}
+				<span class="ml-1">Verwijder {selectedIds.length === 1 ? 'foto' : `${selectedIds.length} foto\'s`}</span>
+			</button>}
+		</div>
+		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={authorized ? dragMove : undefined}>
+			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative group" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined}>
+				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={getPhotoUrl(p.id)} />
+				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
 			</div>)}
 			{authorized && <div class="photo-container relative">
 				<input class="hidden" ref={fileInput} type="file" accept="image/png, image/jpeg" onInput={onUploadPhoto} />

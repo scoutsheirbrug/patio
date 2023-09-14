@@ -27,7 +27,7 @@ export function EditableText({ value, onChange, editable, class: clazz }: Props)
 		}
 	}, [newValue, onChange])
 
-	return <div class={`group ${editable ? 'cursor-pointer' : ''}`} onClick={newValue !== undefined || editable === false ? undefined : startEditing}>
+	return <div class={`group w-full ${editable ? 'cursor-pointer' : ''}`} onClick={newValue !== undefined || editable === false ? undefined : startEditing}>
 		{newValue === undefined
 			? <>
 				<div class={`border-b border-transparent ${clazz}`}>
