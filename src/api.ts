@@ -1,5 +1,3 @@
-import { createThumbnail } from './utils'
-
 const API_URL = '/api'
 
 export interface ApiLibrary {
@@ -59,8 +57,7 @@ export async function deleteAlbum(libraryId: string, secret: string, albumId: st
 	})
 }
 
-export async function postPhoto(libraryId: string, secret: string, albumId: string, photo: File) {
-	const thumbnail = await createThumbnail(photo, { size: 256, quality: 90 })
+export async function postPhoto(libraryId: string, secret: string, albumId: string, photo: File, thumbnail: Blob) {
 	const data = new FormData()
 	data.append("file", photo)
 	data.append("thumbnail", thumbnail)

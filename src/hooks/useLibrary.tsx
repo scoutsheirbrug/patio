@@ -15,7 +15,6 @@ export type LibraryContext = {
 	changeSecret: (secret: Partial<Secret>) => void,
 	changeLibrary: (changes: Partial<ApiLibrary>) => void,
 	changeAlbum: (id: string, changes: Partial<ApiAlbum>) => void,
-	refresh: () => void,
 }
 
 export const LibraryContext = createContext<LibraryContext | undefined>(undefined)
@@ -62,12 +61,6 @@ export function LibraryProvider({ children }: Props) {
 		changeLibrary({ albums: library.albums?.map(a => a.id === id ? { ...a, ...changes } : a) })
 	}, [library])
 
-	const refresh = useCallback(() => {
-		getLibrary(libraryId, secret)
-			.then(library => setLibrary(library))
-			.catch(() => setLibrary({ id: libraryId }))
-	}, [libraryId, secret])
-
 	const authorized = library.authorized ?? false
 
 	const value: LibraryContext = {
@@ -79,7 +72,6 @@ export function LibraryProvider({ children }: Props) {
 		changeSecret,
 		changeLibrary,
 		changeAlbum,
-		refresh,
 	}
 
 	return <LibraryContext.Provider value={value}>

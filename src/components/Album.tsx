@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ApiAlbum, deleteAlbum, getPhotoUrl, patchAlbum, postPhoto } from '../api'
 import { useLibrary } from '../hooks/useLibrary'
+import { createThumbnail } from '../utils'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
 
@@ -11,6 +12,7 @@ export function Album({ album }: Props) {
 	const { library, secret, authorized, changeLibrary, changeAlbum } = useLibrary()
 
 	const fileInput = useRef<HTMLInputElement>(null)
+	const [uploadProgress, setUploadProgress] = useState<{ loading: boolean, preview?: string }[]>([])
 
 	const onRename = useCallback(async (name: string) => {
 		if (name === album.name || name.length === 0) return
@@ -52,13 +54,32 @@ export function Album({ album }: Props) {
 	const onUploadPhoto = useCallback(async () => {
 		if (secret === undefined) return
 		if (!fileInput.current) return
-		const file = fileInput.current?.files?.[0]
-		if (!file) return
-		const photo = await postPhoto(library.id, secret, album.id, file)
-		changeAlbum(album.id, { photos: [...album.photos, photo], cover: !album.cover ? photo.id : album.cover })
+		const files: File[] = []
+		for (const file of fileInput.current?.files ?? []) {
+			files.push(file)
+		}
+		if (files.length === 0) return
+		setUploadProgress(files.map(() => ({ loading: true })))
+		try {
+			const results = await Promise.allSettled(files.map(async (file, i) => {
+				const thumbnail = await createThumbnail(file, { size: 256, quality: 90 })
+				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
+				const photo = await postPhoto(library.id, secret, album.id, file, thumbnail)
+				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
+				return photo
+			}))
+			const photos = results.flatMap(p => p.status === 'fulfilled' ? [p.value] : [])
+			if (photos.length > 0) {
+				changeAlbum(album.id, { photos: [...album.photos, ...photos], cover: !album.cover ? photos[0].id : album.cover })
+			}
+		} finally {
+			setUploadProgress([])
+			fileInput.current.value = ''
+		}
 	}, [fileInput, library, secret, album, changeAlbum])
 
 	const dragArea = useRef<HTMLDivElement>(null)
+	const lastId = useRef<string>()
 	const [selectedIds, setSelectedIds] = useState<string[]>([])
 	const [dragId, setDragId] = useState<string>()
 	const [dragTarget, setDragTarget] = useState<number>()
@@ -72,7 +93,7 @@ export function Album({ album }: Props) {
 			return
 		}
 		const area = dragArea.current.getBoundingClientRect()
-		const tiles = 4
+		const tiles = Number(document.body.style.getPropertyValue('--photo-grid'))
 		const tileSize = area.width / tiles
 		const x = Math.floor((e.clientX - area.x) / tileSize)
 		const y = Math.floor((e.clientY - area.y) / tileSize)
@@ -106,8 +127,8 @@ export function Album({ album }: Props) {
 			} else {
 				if (e.ctrlKey) {
 					setSelectedIds(selectedIds.includes(dragId) ? selectedIds.filter(id => id !== dragId) : [...selectedIds, dragId])
-				} else if (e.shiftKey) {
-					const firstIndex = album.photos.findIndex(p => p.id === selectedIds[0])
+				} else if (e.shiftKey && lastId.current) {
+					const firstIndex = album.photos.findIndex(p => p.id === lastId.current)
 					const lastIndex = album.photos.findIndex(p => p.id === dragId)
 					const toSelect = album.photos.slice(Math.min(firstIndex, lastIndex), Math.max(firstIndex, lastIndex) + 1).map(p => p.id).filter(id => !selectedIds.includes(id))
 					setSelectedIds([...selectedIds, ...toSelect])
@@ -115,6 +136,7 @@ export function Album({ album }: Props) {
 					setSelectedIds([dragId])
 				}
 			}
+			lastId.current = dragId
 			setDragId(undefined)
 			setDragTarget(undefined)
 		}
@@ -130,8 +152,26 @@ export function Album({ album }: Props) {
 		const deletedIds = selectedIds.filter(id => !album.photos.find(p => p.id === id))
 		if (deletedIds.length > 0) {
 			setSelectedIds(selectedIds.filter(id => !deletedIds.includes(id)))
+			if (selectedIds.length === deletedIds.length) {
+				lastId.current = undefined
+			}
 		}
 	}, [album, selectedIds])
+
+	useEffect(() => {
+		const onResize = () => {
+			if (document.body.clientWidth >= 1024) {
+				document.body.style.setProperty('--photo-grid', '6')
+			} else if (document.body.clientWidth >= 768) {
+				document.body.style.setProperty('--photo-grid', '5')
+			} else {
+				document.body.style.setProperty('--photo-grid', '4')
+			}
+		}
+		onResize()
+		window.addEventListener('resize', onResize)
+		return () => window.removeEventListener('resize', onResize)
+	}, [])
 
 	return <div>
 		<div class="flex gap-4">
@@ -149,27 +189,37 @@ export function Album({ album }: Props) {
 		</div>
 		<div class="flex gap-4 mt-1 flex-wrap" onMouseUp={e => e.stopPropagation()}>
 			<span>{album.photos.length} Foto's</span>
-			<button class="flex items-center hover:underline" onClick={() => setSelectedIds(selectedIds.length === 0 ? album.photos.map(p => p.id) : [])}>
-				{selectedIds.length === 0 ? Icons.issue_closed : Icons.x_circle}
-				<span class="ml-1">{selectedIds.length === 0 ? 'Selecteer alles' : 'Deselecteer alles'}</span>
-			</button>
-			{selectedIds.length === 1 && <button class="flex items-center hover:underline" onClick={() => onChangeCover(album.cover === selectedIds[0] ? null : selectedIds[0])}>
-				{album.cover === selectedIds[0] ? Icons.pin_slash : Icons.pin}
-				<span class="ml-1">{album.cover === selectedIds[0] ? 'Verwijder albumcover' : 'Maak albumcover'}</span>
-			</button>}
-			{selectedIds.length > 0 && <button class="flex items-center hover:underline text-red-800 fill-red-800" onClick={() => onDeletePhotos(selectedIds)}>
-				{Icons.trash}
-				<span class="ml-1">Verwijder {selectedIds.length === 1 ? 'foto' : `${selectedIds.length} foto\'s`}</span>
-			</button>}
+			{authorized && <>
+				<button class="flex items-center hover:underline" onClick={() => setSelectedIds(selectedIds.length === 0 ? album.photos.map(p => p.id) : [])}>
+					{selectedIds.length === 0 ? Icons.issue_closed : Icons.x_circle}
+					<span class="ml-1">{selectedIds.length === 0 ? 'Selecteer alles' : 'Deselecteer alles'}</span>
+				</button>
+				{selectedIds.length === 1 && <button class="flex items-center hover:underline" onClick={() => onChangeCover(album.cover === selectedIds[0] ? null : selectedIds[0])}>
+					{album.cover === selectedIds[0] ? Icons.pin_slash : Icons.pin}
+					<span class="ml-1">{album.cover === selectedIds[0] ? 'Verwijder albumcover' : 'Maak albumcover'}</span>
+				</button>}
+				{selectedIds.length > 0 && <button class="flex items-center hover:underline text-red-800 fill-red-800" onClick={() => onDeletePhotos(selectedIds)}>
+					{Icons.trash}
+					<span class="ml-1">Verwijder {selectedIds.length === 1 ? 'foto' : `${selectedIds.length} foto\'s`}</span>
+				</button>}
+			</>}
 		</div>
 		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={authorized ? dragMove : undefined}>
-			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative group" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined}>
-				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={getPhotoUrl(p.id)} />
+			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined}>
+				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={getPhotoUrl(p.id)} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
 			</div>)}
+			{uploadProgress.map(progress => <div class="photo-container relative">
+				{progress.preview === undefined
+					? <div class="absolute w-full h-full bg-gradient-to-br bg-gray-200" />
+					: <img class="absolute w-full h-full select-none object-cover pointer-events-none bg-gray-200" src={progress.preview} />}
+				{progress.loading && <div class="absolute w-full h-full flex justify-center items-center">
+					<div class="w-12 h-12 border-gray-600 border-4 border-b-transparent rounded-full animate-spin" ></div>
+				</div>}
+			</div>)}
 			{authorized && <div class="photo-container relative">
-				<input class="hidden" ref={fileInput} type="file" accept="image/png, image/jpeg" onInput={onUploadPhoto} />
-				<div class="absolute w-full h-full cursor-pointer bg-gray-200 hover:bg-gray-300 flex justify-center items-center text-4xl font-bold text-gray-600" onClick={secret === undefined ? undefined : (() => fileInput.current?.click())}>
+				<input class="hidden" ref={fileInput} type="file" accept="image/png, image/jpeg" multiple onInput={onUploadPhoto} disabled={uploadProgress.length > 0} />
+				<div class={`absolute w-full h-full bg-gray-200 ${uploadProgress.length > 0 ? '' : 'hover:bg-gray-300 cursor-pointer'} flex justify-center items-center text-4xl font-bold text-gray-600`} onClick={secret === undefined ? undefined : (() => fileInput.current?.click())}>
 					{Icons.plus}
 				</div>
 			</div>}

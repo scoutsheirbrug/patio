@@ -2,8 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+    --photo-grid: 4;
+}
+
 .photo-container {
-    flex-basis: calc(25% - 4px);
+    flex-basis: calc(100% / var(--photo-grid) - 4px);
 }
 
 .photo-container:after {
