@@ -125,6 +125,9 @@ app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) =>
 
 const patchAlbumSchema = postAlbumSchema.extend({
 	cover: z.string().or(z.null()),
+	photos: z.array(z.object({
+		id: z.string(),
+	})),
 }).partial()
 app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async (c) => {
 	const albumId = c.req.param('id')
@@ -142,6 +145,12 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 	}
 	if (body.timestamp) {
 		album.timestamp = body.timestamp
+	}
+	if (body.photos !== undefined) {
+		album.photos = body.photos.flatMap(p => {
+			const photo = album.photos.find(q => q.id === p.id)
+			return photo === undefined ? [] : [photo]
+		})
 	}
 	if (body.cover && album.photos.some(p => p.id === body.cover)) {
 		album.cover = body.cover
