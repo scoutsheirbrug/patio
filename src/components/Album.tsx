@@ -64,12 +64,13 @@ export function Album({ album }: Props) {
 			const results = await Promise.allSettled(files.map(async (file, i) => {
 				const thumbnail = await createThumbnail(file, { size: 256, quality: 90 })
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
-				const photo = await postPhoto(library.id, secret, album.id, file, thumbnail)
+				const photo = await postPhoto(library.id, secret, file, thumbnail)
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
 				return photo
 			}))
 			const photos = results.flatMap(p => p.status === 'fulfilled' ? [p.value] : [])
 			if (photos.length > 0) {
+				await patchAlbum(library.id, secret, album.id, { photos: [...album.photos, ...photos] })
 				changeAlbum(album.id, { photos: [...album.photos, ...photos], cover: !album.cover ? photos[0].id : album.cover })
 			}
 		} finally {

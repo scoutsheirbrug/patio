@@ -127,6 +127,8 @@ const patchAlbumSchema = postAlbumSchema.extend({
 	cover: z.string().or(z.null()),
 	photos: z.array(z.object({
 		id: z.string(),
+		author: z.string().optional(),
+		timestamp: z.string().optional(),
 	})),
 }).partial()
 app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async (c) => {
@@ -148,9 +150,9 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 	}
 	if (body.photos !== undefined) {
 		const deletedPhotos = album.photos.filter(p => !body.photos!.find(q => q.id === p.id))
-		album.photos = body.photos.flatMap(p => {
+		album.photos = body.photos.map(p => {
 			const photo = album.photos.find(q => q.id === p.id)
-			return photo === undefined ? [] : [photo]
+			return { ...photo, ...p, timestamp: p.timestamp ?? photo?.timestamp ?? new Date().toISOString() }
 		})
 		for (const photo of deletedPhotos) {
 			if (album.cover === photo.id) {
@@ -192,14 +194,6 @@ app.post('/photo', getLibrary, async (c) => {
 	if (!authorized) {
 		return c.text(`Unauthorized to access library "${library.id}"`, 401)
 	}
-	const albumId = c.req.query('album')
-	if (!albumId || !albumId.match(/^[A-Za-z0-9_-]+$/)) {
-		return c.text('Expected a valid "album" search param', 400)
-	}
-	const album = library.albums.find(a => a.id === albumId)
-	if (!album) {
-		return c.text(`Album "${albumId}" not found`, 404)
-	}
 	const formData = await c.req.formData()
 	const file = formData.get('file')
 	if (!(file instanceof File)) {
@@ -218,14 +212,8 @@ app.post('/photo', getLibrary, async (c) => {
 	})
 	const photo = {
 		id: photoId,
-		author: formData.get('author')?.toString(),
 		timestamp: formData.get('timestamp')?.toString() ?? new Date().toISOString(),
 	}
-	album.photos.push(photo)
-	if (album.cover === undefined) {
-		album.cover = photo.id 
-	}
-	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
 	return c.json(photo)
 })
 
@@ -240,34 +228,6 @@ app.get('/photo/:id', async (c) => {
 	headers.set('etag', photo.httpEtag)
 	const status = photo.body ? 200 : 304
 	return c.body(photo.body as any, status, headers as any)
-})
-
-app.delete('/photo/:id', getLibrary, async (c) => {
-	const photoId = c.req.param('id')
-	const { library, authorized } = c.var
-	if (!authorized) {
-		return c.text(`Unauthorized to access library "${library.id}"`, 401)
-	}
-	const albumId = c.req.query('album')
-	if (!albumId || !albumId.match(/^[A-Za-z0-9_-]+$/)) {
-		return c.text('Expected a valid "album" search param', 400)
-	}
-	const album = library.albums.find(a => a.id === albumId)
-	if (!album) {
-		return c.text(`Album "${albumId}" not found in library`, 404)
-	}
-	const photoIndex = album.photos.findIndex(p => p.id === photoId)
-	if (photoIndex === -1) {
-		return c.text(`Photo "${photoId}" not found in album`, 404)
-	}
-	album.photos.splice(photoIndex, 1)
-	if (album.cover === photoId) {
-		album.cover = undefined
-	}
-	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
-	await c.env.BUCKET.delete(photoId)
-	await c.env.BUCKET.delete(`thumb_${photoId}`)
-	return c.text('')
 })
 
 export const onRequest = handle(app)
