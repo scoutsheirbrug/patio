@@ -68,6 +68,6 @@ export async function postPhoto(libraryId: string, secret: string, photo: File, 
 	return await response.json() as ApiPhoto
 }
 
-export function getPhotoUrl(id: string, large = false) {
-	return `${API_URL}/photo/${large ? '' : 'thumb_'}${id}`
+export function getPhotoUrl(id: string, size: 'original' | 'thumbnail') {
+	return `${API_URL}/photo/${id}?size=${size}`
 }

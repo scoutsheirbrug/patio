@@ -19,5 +19,5 @@ export async function createThumbnail(photo: File, { size, quality }: ThumbnailO
 			res(buffer)
 		})
 	})
-	return new Blob([result])
+	return new Blob([result], { type: 'image/jpeg' })
 }

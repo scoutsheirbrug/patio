@@ -45,10 +45,8 @@ type Photo = {
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api')
 
-app.use(cors({
+app.use('/*', cors({
 	origin: '*',
-	allowHeaders: ['*'],
-	allowMethods: ['*'],
 	maxAge: 86400,
 }))
 
@@ -205,10 +203,14 @@ app.post('/photo', getLibrary, async (c) => {
 	}
 	const photoId = generateId(16)
 	await c.env.BUCKET.put(photoId, file as any, {
-		httpMetadata: c.req.raw.headers as any,
+		httpMetadata: {
+			contentType: file.type,
+		},
 	})
 	await c.env.BUCKET.put(`thumb_${photoId}`, thumbnail as any, {
-		httpMetadata: c.req.raw.headers as any,
+		httpMetadata: {
+			contentType: thumbnail.type,
+		},
 	})
 	const photo = {
 		id: photoId,
@@ -219,15 +221,27 @@ app.post('/photo', getLibrary, async (c) => {
 
 app.get('/photo/:id', async (c) => {
 	const photoId = c.req.param('id')
-	const photo = await c.env.BUCKET.get(photoId)
+	const size = c.req.query('size')
+	let objectId: string
+	if (size === 'original') {
+		objectId = photoId
+	} else if (size === 'thumbnail') {
+		objectId = `thumb_${photoId}`
+	} else {
+		return c.text('Expected a valid "size" search parameter', 400)
+	}
+	const photo = await c.env.BUCKET.get(objectId)
 	if (photo === null) {
 		return c.text('Photo not found', 404)
 	}
-	const headers = new Headers()
-	photo.writeHttpMetadata(headers as any)
-	headers.set('etag', photo.httpEtag)
+	console.log('Returning photo', photo.size)
 	const status = photo.body ? 200 : 304
-	return c.body(photo.body as any, status, headers as any)
+	return c.body(photo.body as any, status, {
+		'Cache-Control': 'public, max-age=604800, immutable',
+		'Content-Type': photo.httpMetadata?.contentType ?? 'image/jpeg',
+		'Content-Length': photo.size.toFixed(),
+		'Etag': photo.httpEtag,
+	})
 })
 
 export const onRequest = handle(app)

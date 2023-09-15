@@ -33,7 +33,7 @@ export function Library({ onSelect }: Props) {
     {library.albums?.map(a => <div key={a.id} class="w-64">
       <div class="relative group h-64 cursor-pointer" onClick={() => onSelect(a.id)}>
         {a.cover
-          ? <img class="absolute w-full h-full rounded-lg object-cover" src={getPhotoUrl(a.cover)} />
+          ? <img class="absolute w-full h-full rounded-lg object-cover" src={getPhotoUrl(a.cover, 'thumbnail')} />
           : <div class="absolute w-full h-full bg-gradient-to-br from-gray-200 to-slate-300 rounded-lg" />}
       </div>
       <div class="flex items-center [&>svg]:shrink-0 [&>svg]:mr-1 mt-1">
