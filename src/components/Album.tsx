@@ -66,7 +66,7 @@ export function Album({ album }: Props) {
 			const results = await Promise.allSettled(files.map(async (original, i) => {
 				const [thumbnail, preview] = await Promise.all([
 					resizePhoto(original, { size: 256, square: true, quality: 90 }),
-					resizePhoto(original, { size: 1024, quality: 70 }),
+					resizePhoto(original, { size: 1024, quality: 30 }),
 				])
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
 				const photo = await postPhoto(library.id, secret, { original, thumbnail, preview })
