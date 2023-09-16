@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ApiAlbum, deleteAlbum, getPhotoUrl, patchAlbum, postPhoto } from '../api'
 import { useLibrary } from '../hooks/useLibrary'
-import { createThumbnail } from '../utils'
+import { resizePhoto } from '../utils'
+import { DetailActions } from './DetailActions'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
+import { ProgressiveImage } from './ProgressiveImage'
 
 type Props = {
 	album: ApiAlbum,
@@ -61,10 +63,13 @@ export function Album({ album }: Props) {
 		if (files.length === 0) return
 		setUploadProgress(files.map(() => ({ loading: true })))
 		try {
-			const results = await Promise.allSettled(files.map(async (file, i) => {
-				const thumbnail = await createThumbnail(file, { size: 256, quality: 90 })
+			const results = await Promise.allSettled(files.map(async (original, i) => {
+				const [thumbnail, preview] = await Promise.all([
+					resizePhoto(original, { size: 256, square: true, quality: 90 }),
+					resizePhoto(original, { size: 1024, quality: 70 }),
+				])
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
-				const photo = await postPhoto(library.id, secret, file, thumbnail)
+				const photo = await postPhoto(library.id, secret, { original, thumbnail, preview })
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
 				return photo
 			}))
@@ -78,6 +83,13 @@ export function Album({ album }: Props) {
 			fileInput.current.value = ''
 		}
 	}, [fileInput, library, secret, album, changeAlbum])
+
+	const [detailPhoto, setDetailPhoto] = useState<string>()
+
+	const onViewPhoto = useCallback((id: string, e: MouseEvent) => {
+		setDetailPhoto(id)
+		e.stopPropagation()
+	}, [])
 
 	const dragArea = useRef<HTMLDivElement>(null)
 	const lastId = useRef<string>()
@@ -212,6 +224,7 @@ export function Album({ album }: Props) {
 			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
 				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={getPhotoUrl(p.id, 'thumbnail')} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
+				{authorized && <div class="absolute w-8 h-8 top[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" onClick={e => onViewPhoto(p.id, e)} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</div>}
 			</div>)}
 			{uploadProgress.map(progress => <div class="photo-container relative">
 				{progress.preview === undefined
@@ -228,5 +241,9 @@ export function Album({ album }: Props) {
 				</div>
 			</div>}
 		</div>
+		{detailPhoto && <div class="fixed top-0 left-0 w-full h-full p-2 flex items-center justify-center bg-black bg-opacity-80" onClick={() => setDetailPhoto(undefined)}>
+			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={getPhotoUrl(detailPhoto, 'preview')} detailed={getPhotoUrl(detailPhoto, 'original')} onClick={e => e.stopPropagation()} />
+			<DetailActions album={album.photos.map(p => p.id)} id={detailPhoto} changeId={setDetailPhoto} downloadUrl={getPhotoUrl(detailPhoto, 'original')} />
+		</div>}
 	</div>
 }

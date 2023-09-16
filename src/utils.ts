@@ -4,12 +4,17 @@ declare var Jimp: any
 
 type ThumbnailOptions = {
 	size: number,
+	square?: boolean,
 	quality?: number,
 }
-export async function createThumbnail(photo: File, { size, quality }: ThumbnailOptions) {
+export async function resizePhoto(photo: File, { size, square, quality }: ThumbnailOptions) {
 	const buffer = await photo.arrayBuffer()
 	const jimp = await Jimp.read(buffer)
-	jimp.cover(size, size)
+	if (square) {
+		jimp.cover(size, size)
+	} else {
+		jimp.resize(size, Jimp.AUTO)
+	}
 	if (quality) {
 		jimp.quality(quality)
 	}

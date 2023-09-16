@@ -57,10 +57,11 @@ export async function deleteAlbum(libraryId: string, secret: string, albumId: st
 	})
 }
 
-export async function postPhoto(libraryId: string, secret: string, photo: File, thumbnail: Blob) {
+export async function postPhoto(libraryId: string, secret: string, photos: { original: Blob, thumbnail: Blob, preview: Blob }) {
 	const data = new FormData()
-	data.append("file", photo)
-	data.append("thumbnail", thumbnail)
+	data.append("original", photos.original)
+	data.append("thumbnail", photos.thumbnail)
+	data.append("preview", photos.preview)
 	const response = await fetch(`${API_URL}/photo?library=${libraryId}&secret=${secret}`, {
 		method: 'POST',
 		body: data,
@@ -68,6 +69,6 @@ export async function postPhoto(libraryId: string, secret: string, photo: File, 
 	return await response.json() as ApiPhoto
 }
 
-export function getPhotoUrl(id: string, size: 'original' | 'thumbnail') {
+export function getPhotoUrl(id: string, size: 'original' | 'thumbnail' | 'preview') {
 	return `${API_URL}/photo/${id}?size=${size}`
 }

@@ -187,31 +187,32 @@ app.delete('/album/:id', getLibrary, async (c) => {
 	return c.text('')
 })
 
+function getObjectId(id: string, size?: string) {
+	if (size === 'original') return id
+	if (size === 'thumbnail') return `thumb_${id}`
+	if (size === 'preview') return `preview_${id}`
+	return undefined
+}
+
 app.post('/photo', getLibrary, async (c) => {
 	const { library, authorized } = c.var
 	if (!authorized) {
 		return c.text(`Unauthorized to access library "${library.id}"`, 401)
 	}
-	const formData = await c.req.formData()
-	const file = formData.get('file')
-	if (!(file instanceof File)) {
-		return c.text(`Expected "file" to be a File`, 400)
-	}
-	const thumbnail = formData.get('thumbnail')
-	if (!(thumbnail instanceof File)) {
-		return c.text(`Expected "thumbnail" to be a File`, 400)
-	}
 	const photoId = generateId(16)
-	await c.env.BUCKET.put(photoId, file as any, {
-		httpMetadata: {
-			contentType: file.type,
-		},
-	})
-	await c.env.BUCKET.put(`thumb_${photoId}`, thumbnail as any, {
-		httpMetadata: {
-			contentType: thumbnail.type,
-		},
-	})
+	const formData = await c.req.formData()
+	for (const size of ['original', 'thumbnail', 'preview'] as const) {
+		const file = formData.get(size)
+		if (!(file instanceof File)) {
+			return c.text(`Expected "${size}" to be a File`, 400)
+		}
+		const objectId = getObjectId(photoId, size)!
+		await c.env.BUCKET.put(objectId, file as any, {
+			httpMetadata: {
+				contentType: file.type,
+			},
+		})
+	}
 	const photo = {
 		id: photoId,
 		timestamp: formData.get('timestamp')?.toString() ?? new Date().toISOString(),
@@ -222,12 +223,8 @@ app.post('/photo', getLibrary, async (c) => {
 app.get('/photo/:id', async (c) => {
 	const photoId = c.req.param('id')
 	const size = c.req.query('size')
-	let objectId: string
-	if (size === 'original') {
-		objectId = photoId
-	} else if (size === 'thumbnail') {
-		objectId = `thumb_${photoId}`
-	} else {
+	let objectId = getObjectId(photoId, size)
+	if (objectId === undefined) {
 		return c.text('Expected a valid "size" search parameter', 400)
 	}
 	const photo = await c.env.BUCKET.get(objectId)
