@@ -1,18 +1,15 @@
 import { ComponentChildren, createContext } from 'preact'
 import { useCallback, useContext, useEffect, useState } from 'preact/hooks'
-import { ApiAlbum, ApiLibrary, getLibrary } from '../api'
+import { ApiAlbum, ApiLibrary } from '../api'
+import { useAuth } from './useAuth'
 
 const DEFAULT_LIBRARY_ID = 'scoutsheirbrug'
-
-export type Secret = string
 
 export type LibraryContext = {
 	libraryId: string,
 	library: Partial<ApiLibrary> & { id: string },
-	secret: Secret,
 	authorized: boolean,
 	changeLibraryId: (id: string) => void,
-	changeSecret: (secret: Partial<Secret>) => void,
 	changeLibrary: (changes: Partial<ApiLibrary>) => void,
 	changeAlbum: (id: string, changes: Partial<ApiAlbum>) => void,
 }
@@ -31,8 +28,8 @@ type Props = {
 	children: ComponentChildren,
 }
 export function LibraryProvider({ children }: Props) {
+	const { api } = useAuth()
 	const [libraryId, setLibraryId] = useState<string>(localStorage.getItem('library_id') ?? DEFAULT_LIBRARY_ID)
-	const [secret, setSecret] = useState<string>(localStorage.getItem('secret') ?? '')
 	const [library, setLibrary] = useState<Partial<ApiLibrary> & { id: string }>({ id: libraryId })
 
 	const changeLibraryId = useCallback((libraryId: string) => {
@@ -40,16 +37,11 @@ export function LibraryProvider({ children }: Props) {
 		setLibraryId(libraryId)
 	}, [])
 
-	const changeSecret = useCallback((secret: string) => {
-		localStorage.setItem('secret', secret)
-		setSecret(secret)
-	}, [])
-
 	useEffect(() => {
-		getLibrary(libraryId, secret)
+		api.getLibrary(libraryId)
 			.then(library => setLibrary(library))
 			.catch(() => setLibrary({ id: libraryId }))
-	}, [libraryId, secret])
+	}, [api, libraryId])
 
 	const changeLibrary = useCallback((changes: Partial<ApiLibrary>) => {
 		if (library === undefined) return
@@ -65,11 +57,9 @@ export function LibraryProvider({ children }: Props) {
 
 	const value: LibraryContext = {
 		libraryId,
-		secret,
 		library,
 		authorized,
 		changeLibraryId,
-		changeSecret,
 		changeLibrary,
 		changeAlbum,
 	}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { ApiAlbum, deleteAlbum, getPhotoUrl, patchAlbum, postPhoto } from '../api'
+import { ApiAlbum } from '../api'
+import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
 import { resizePhoto } from '../utils'
 import { DetailActions } from './DetailActions'
@@ -11,37 +12,38 @@ type Props = {
 	album: ApiAlbum,
 }
 export function Album({ album }: Props) {
-	const { library, secret, authorized, changeLibrary, changeAlbum } = useLibrary()
+	const { api } = useAuth()
+	const { library, authorized, changeLibrary, changeAlbum } = useLibrary()
 
 	const fileInput = useRef<HTMLInputElement>(null)
 	const [uploadProgress, setUploadProgress] = useState<{ loading: boolean, preview?: string }[]>([])
 
 	const onRename = useCallback(async (name: string) => {
 		if (name === album.name || name.length === 0) return
-		const newAlbum = await patchAlbum(library.id, secret, album.id, { name })
+		const newAlbum = await api.patchAlbum(library.id, album.id, { name })
 		changeAlbum(album.id, newAlbum)
-	}, [library, secret, album, changeAlbum])
+	}, [api, library, album, changeAlbum])
 
 	const onChangeVisibility = useCallback(async (isPublic: boolean) => {
 		if (isPublic === album.public) return
-		const newAlbum = await patchAlbum(library.id, secret, album.id, { public: isPublic })
+		const newAlbum = await api.patchAlbum(library.id, album.id, { public: isPublic })
 		changeAlbum(album.id, newAlbum)
-	}, [library, secret, album, changeAlbum])
+	}, [api, library, album, changeAlbum])
 
   const onDeleteAlbum = useCallback(async () => {
     if (album.photos.length > 0) {
       const confirmed = confirm(`Weet je zeker dat je "${album.name}" en alle ${album.photos.length} foto's definitief wilt verwijderen?`)
       if (!confirmed) return
     }
-    await deleteAlbum(library.id, secret, album.id)
+    await api.deleteAlbum(library.id, album.id)
     changeLibrary({ albums: library.albums?.filter(a => a.id !== album.id) ?? [] })
-  }, [library, secret, album, changeLibrary])
+  }, [api, library, album, changeLibrary])
 
 	const onChangeCover = useCallback(async (id: string | null) => {
-		const newAlbum = await patchAlbum(library.id, secret, album.id, { cover: id })
+		const newAlbum = await api.patchAlbum(library.id, album.id, { cover: id })
 		if (!newAlbum.cover) newAlbum.cover = null
 		changeAlbum(album.id, newAlbum)
-	}, [library, secret, album, changeAlbum])
+	}, [api, library, album, changeAlbum])
 
 	const onDeletePhotos = useCallback(async (ids: string[]) => {
 		const remainingPhotos = album.photos.filter(p => !ids.includes(p.id))
@@ -49,12 +51,11 @@ export function Album({ album }: Props) {
 			const confirmed = confirm(`Weet je zeker dat je ${album.photos.length} foto's definitief wilt verwijderen?`)
       if (!confirmed) return
 		}
-		await patchAlbum(library.id, secret, album.id, { photos: remainingPhotos })
+		await api.patchAlbum(library.id, album.id, { photos: remainingPhotos })
 		changeAlbum(album.id, { photos: remainingPhotos, cover: remainingPhotos.find(p => p.id === album.cover) ? album.cover : null })
-	}, [library, secret, album, changeAlbum])
+	}, [api, library, album, changeAlbum])
 
 	const onUploadPhoto = useCallback(async () => {
-		if (secret === undefined) return
 		if (!fileInput.current) return
 		const files: File[] = []
 		for (const file of fileInput.current?.files ?? []) {
@@ -69,20 +70,20 @@ export function Album({ album }: Props) {
 					resizePhoto(original, { size: 1024, quality: 30 }),
 				])
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
-				const photo = await postPhoto(library.id, secret, { original, thumbnail, preview })
+				const photo = await api.postPhoto(library.id, { original, thumbnail, preview })
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
 				return photo
 			}))
 			const photos = results.flatMap(p => p.status === 'fulfilled' ? [p.value] : [])
 			if (photos.length > 0) {
-				await patchAlbum(library.id, secret, album.id, { photos: [...album.photos, ...photos] })
+				await api.patchAlbum(library.id, album.id, { photos: [...album.photos, ...photos] })
 				changeAlbum(album.id, { photos: [...album.photos, ...photos], cover: !album.cover ? photos[0].id : album.cover })
 			}
 		} finally {
 			setUploadProgress([])
 			fileInput.current.value = ''
 		}
-	}, [fileInput, library, secret, album, changeAlbum])
+	}, [api, library, album, changeAlbum, fileInput])
 
 	const [detailPhoto, setDetailPhoto] = useState<string>()
 
@@ -133,7 +134,7 @@ export function Album({ album }: Props) {
 	useEffect(() => {
 		const onMouseUp = (e: MouseEvent | TouchEvent) => {
 			if (dragSortedPhotos !== album.photos) {
-				patchAlbum(library.id, secret, album.id, { photos: dragSortedPhotos })
+				api.patchAlbum(library.id, album.id, { photos: dragSortedPhotos })
 					.then(a => changeAlbum(album.id, a))
 				changeAlbum(album.id, { photos: dragSortedPhotos }) // optimistic update
 			} else if (dragId === undefined) {
@@ -162,7 +163,7 @@ export function Album({ album }: Props) {
 				window.removeEventListener('touchend', onMouseUp)
 			}
 		}
-	}, [library, secret, authorized, album, selectedIds, dragId, dragSortedPhotos])
+	}, [api, library, authorized, album, selectedIds, dragId, dragSortedPhotos])
 
 	useEffect(() => {
 		const deletedIds = selectedIds.filter(id => !album.photos.find(p => p.id === id))
@@ -222,7 +223,7 @@ export function Album({ album }: Props) {
 		</div>
 		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
 			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
-				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={getPhotoUrl(p.id, 'thumbnail')} alt="" />
+				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={api.getPhotoUrl(p.id, 'thumbnail')} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
 				{authorized && <div class="absolute w-8 h-8 top[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" onClick={e => onViewPhoto(p.id, e)} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</div>}
 			</div>)}
@@ -236,14 +237,14 @@ export function Album({ album }: Props) {
 			</div>)}
 			{authorized && <div class="photo-container relative">
 				<input class="hidden" ref={fileInput} type="file" accept="image/png, image/jpeg" multiple onInput={onUploadPhoto} disabled={uploadProgress.length > 0} />
-				<div class={`absolute w-full h-full bg-gray-200 ${uploadProgress.length > 0 ? '' : 'hover:bg-gray-300 cursor-pointer'} flex justify-center items-center text-4xl font-bold text-gray-600`} onClick={secret === undefined ? undefined : (() => fileInput.current?.click())}>
+				<div class={`absolute w-full h-full bg-gray-200 ${uploadProgress.length > 0 ? '' : 'hover:bg-gray-300 cursor-pointer'} flex justify-center items-center text-4xl font-bold text-gray-600`} onClick={authorized && (() => fileInput.current?.click())}>
 					{Icons.plus}
 				</div>
 			</div>}
 		</div>
 		{detailPhoto && <div class="fixed top-0 left-0 w-full h-full p-2 flex items-center justify-center bg-black bg-opacity-80" onClick={() => setDetailPhoto(undefined)}>
-			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={getPhotoUrl(detailPhoto, 'preview')} detailed={getPhotoUrl(detailPhoto, 'original')} onClick={e => e.stopPropagation()} />
-			<DetailActions album={album.photos.map(p => p.id)} id={detailPhoto} changeId={setDetailPhoto} downloadUrl={getPhotoUrl(detailPhoto, 'original')} />
+			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={api.getPhotoUrl(detailPhoto, 'preview')} detailed={api.getPhotoUrl(detailPhoto, 'original')} onClick={e => e.stopPropagation()} />
+			<DetailActions album={album.photos.map(p => p.id)} id={detailPhoto} changeId={setDetailPhoto} downloadUrl={api.getPhotoUrl(detailPhoto, 'original')} />
 		</div>}
 	</div>
 }

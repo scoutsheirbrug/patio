@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'preact/hooks'
-import { getPhotoUrl, postAlbum } from '../api'
+import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
 import { Icons } from './Icons'
 
@@ -7,7 +7,8 @@ type Props = {
   onSelect: (id: string) => void,
 }
 export function Library({ onSelect }: Props) {
-  const { library, secret, authorized, changeLibrary } = useLibrary()
+  const { api } = useAuth()
+  const { library, authorized, changeLibrary } = useLibrary()
 
   const addRef = useRef<HTMLInputElement>(null)
   const [newName, setNewName] = useState<string>()
@@ -21,19 +22,19 @@ export function Library({ onSelect }: Props) {
 
   const onAdd = useCallback(async (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
-      if (secret !== undefined && newName && newName.length > 0) {
-        const album = await postAlbum(library.id, secret, newName)
+      if (newName && newName.length > 0) {
+        const album = await api.postAlbum(library.id, newName)
         changeLibrary({ albums: [...library.albums ?? [], album] })
       }
       setNewName(undefined)
     }
-  }, [library, newName])
+  }, [api, library, newName])
 
   return <div class="flex flex-wrap gap-2">
     {library.albums?.map(a => <div key={a.id} class="w-64">
       <div class="relative group h-64 cursor-pointer" onClick={() => onSelect(a.id)}>
         {a.cover
-          ? <img class="absolute w-full h-full rounded-lg object-cover" src={getPhotoUrl(a.cover, 'thumbnail')} />
+          ? <img class="absolute w-full h-full rounded-lg object-cover" src={api.getPhotoUrl(a.cover, 'thumbnail')} />
           : <div class="absolute w-full h-full bg-gradient-to-br from-gray-200 to-slate-300 rounded-lg" />}
       </div>
       <div class="flex items-center [&>svg]:shrink-0 [&>svg]:mr-1 mt-1">

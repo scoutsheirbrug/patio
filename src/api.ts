@@ -1,5 +1,11 @@
 const API_URL = '/api'
 
+export interface ApiUser {
+	username: string,
+	library_access: string[],
+	admin_access: boolean,
+}
+
 export interface ApiLibrary {
 	id: string,
 	timestamp: string,
@@ -22,53 +28,91 @@ export interface ApiPhoto {
 	timestamp: string,
 }
 
-export async function getLibrary(libraryId: string, secret: string) {
-	const response = await fetch(`${API_URL}/library?library=${libraryId}&secret=${secret}`)
-	return await response.json() as ApiLibrary
-}
+export class Api {
+	constructor(private readonly token?: string) {}
 
-export async function postAlbum(libraryId: string, secret: string, albumName: string) {
-	const response = await fetch(`${API_URL}/album?library=${libraryId}&secret=${secret}`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			name: albumName,
+	private get authHeaders(): HeadersInit {
+		if (!this.token) return {}
+		return { 'Authorization': `Bearer ${this.token}` }
+	}
+
+	get hasToken() {
+		return this.token !== undefined
+	}
+
+	async login(username: string, password: string) {
+		const response = await fetch(`${API_URL}/login`, {
+			method: 'POST',
+			body: JSON.stringify({
+				username,
+				password,
+			}),
+			headers: this.authHeaders,
 		})
-	})
-	return await response.json() as ApiAlbum
-}
+		return await response.json() as { token: string, user: ApiUser }
+	}
 
-export async function patchAlbum(libraryId: string, secret: string, albumId: string, changes: Partial<ApiAlbum>) {
-	const response = await fetch(`${API_URL}/album/${albumId}?library=${libraryId}&secret=${secret}`, {
-		method: 'PATCH',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(changes),
-	})
-	return await response.json() as ApiAlbum
-}
+	async getUser(username: string) {
+		const response = await fetch(`${API_URL}/user/${username}`, {
+			headers: this.authHeaders,
+		})
+		return await response.json() as ApiUser
+	}
 
-export async function deleteAlbum(libraryId: string, secret: string, albumId: string) {
-	await fetch(`${API_URL}/album/${albumId}?library=${libraryId}&secret=${secret}`, {
-		method: 'DELETE',
-	})
-}
+	async getLibrary(libraryId: string) {
+		const response = await fetch(`${API_URL}/library?library=${libraryId}`, {
+			headers: this.authHeaders,
+		})
+		return await response.json() as ApiLibrary
+	}
+	
+	async postAlbum(libraryId: string, albumName: string) {
+		const response = await fetch(`${API_URL}/album?library=${libraryId}`, {
+			method: 'POST',
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				name: albumName,
+			})
+		})
+		return await response.json() as ApiAlbum
+	}
+	
+	async patchAlbum(libraryId: string, albumId: string, changes: Partial<ApiAlbum>) {
+		const response = await fetch(`${API_URL}/album/${albumId}?library=${libraryId}`, {
+			method: 'PATCH',
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(changes),
+		})
+		return await response.json() as ApiAlbum
+	}
+	
+	async deleteAlbum(libraryId: string, albumId: string) {
+		await fetch(`${API_URL}/album/${albumId}?library=${libraryId}`, {
+			method: 'DELETE',
+			headers: this.authHeaders,
+		})
+	}
+	
+	async postPhoto(libraryId: string, photos: { original: Blob, thumbnail: Blob, preview: Blob }) {
+		const data = new FormData()
+		data.append("original", photos.original)
+		data.append("thumbnail", photos.thumbnail)
+		data.append("preview", photos.preview)
+		const response = await fetch(`${API_URL}/photo?library=${libraryId}`, {
+			method: 'POST',
+			body: data,
+			headers: this.authHeaders,
+		})
+		return await response.json() as ApiPhoto
+	}
 
-export async function postPhoto(libraryId: string, secret: string, photos: { original: Blob, thumbnail: Blob, preview: Blob }) {
-	const data = new FormData()
-	data.append("original", photos.original)
-	data.append("thumbnail", photos.thumbnail)
-	data.append("preview", photos.preview)
-	const response = await fetch(`${API_URL}/photo?library=${libraryId}&secret=${secret}`, {
-		method: 'POST',
-		body: data,
-	})
-	return await response.json() as ApiPhoto
-}
-
-export function getPhotoUrl(id: string, size: 'original' | 'thumbnail' | 'preview') {
-	return `${API_URL}/photo/${id}?size=${size}`
+	getPhotoUrl(photoId: string, size: 'original' | 'thumbnail' | 'preview') {
+		return `${API_URL}/photo/${photoId}?size=${size}`
+	}
 }

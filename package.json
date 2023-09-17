@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.1.8",
+    "@tsndr/cloudflare-worker-jwt": "^2.2.2",
     "hono": "^3.6.0",
     "jimp": "^0.22.10",
     "preact": "^10.16.0",
