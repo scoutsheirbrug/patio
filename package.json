@@ -13,6 +13,7 @@
     "@tsndr/cloudflare-worker-jwt": "^2.2.2",
     "hono": "^3.6.0",
     "jimp": "^0.22.10",
+    "piexifjs": "^1.0.6",
     "preact": "^10.16.0",
     "zod": "^3.22.2"
   },

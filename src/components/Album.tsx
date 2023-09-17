@@ -3,7 +3,7 @@ import { ApiAlbum } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
 import { useSearchParam } from '../hooks/useSearchParam'
-import { resizePhoto } from '../utils'
+import { processPhoto } from '../utils'
 import { DetailActions } from './DetailActions'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
@@ -66,15 +66,17 @@ export function Album({ album }: Props) {
 		setUploadProgress(files.map(() => ({ loading: true })))
 		try {
 			const results = await Promise.allSettled(files.map(async (original, i) => {
-				const [thumbnail, preview] = await Promise.all([
-					resizePhoto(original, { size: 256, square: true, quality: 90 }),
-					resizePhoto(original, { size: 1024, quality: 30 }),
-				])
+				const { processed, thumbnail, preview } = await processPhoto(original)
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
-				const photo = await api.postPhoto(library.id, { original, thumbnail, preview })
+				const photo = await api.postPhoto(library.id, { original: processed, thumbnail, preview })
 				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
 				return photo
 			}))
+			results.forEach((p, i) => {
+				if (p.status === 'rejected') {
+					console.error(`Failed to process photo ${files[i].name}: ${p.reason}`)
+				}
+			})
 			const photos = results.flatMap(p => p.status === 'fulfilled' ? [p.value] : [])
 			if (photos.length > 0) {
 				await api.patchAlbum(library.id, album.id, { photos: [...album.photos, ...photos] })
