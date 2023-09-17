@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'preact/hooks'
+import { useMemo } from 'preact/hooks'
 import { Album } from './components/Album'
 import { Icons } from './components/Icons'
 import { Library } from './components/Library'
 import { LoginPopup } from './components/LoginPopup'
 import { useAuth } from './hooks/useAuth'
 import { useLibrary } from './hooks/useLibrary'
+import { useSearchParam } from './hooks/useSearchParam'
 
 export function App() {
 	const { user } = useAuth()
 	const { libraryId, library, changeLibraryId } = useLibrary()
 
-	const [albumId, setAlbumId] = useState<string>()
+	const [albumId, setAlbumId] = useSearchParam('album')
 	const album = useMemo(() => {
 		return library.albums?.find(a => a.id === albumId)
 	}, [library, albumId])

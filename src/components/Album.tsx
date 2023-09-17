@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ApiAlbum } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
+import { useSearchParam } from '../hooks/useSearchParam'
 import { resizePhoto } from '../utils'
 import { DetailActions } from './DetailActions'
 import { EditableText } from './EditableText'
@@ -85,7 +86,7 @@ export function Album({ album }: Props) {
 		}
 	}, [api, library, album, changeAlbum, fileInput])
 
-	const [detailPhoto, setDetailPhoto] = useState<string>()
+	const [detailPhoto, setDetailPhoto] = useSearchParam('photo')
 
 	const onViewPhoto = useCallback((id: string, e: MouseEvent) => {
 		setDetailPhoto(id)

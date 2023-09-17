@@ -1,7 +1,8 @@
 import { ComponentChildren, createContext } from 'preact'
-import { useCallback, useContext, useEffect, useState } from 'preact/hooks'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'preact/hooks'
 import { ApiAlbum, ApiLibrary } from '../api'
 import { useAuth } from './useAuth'
+import { useSearchParam } from './useSearchParam'
 
 const DEFAULT_LIBRARY_ID = 'scoutsheirbrug'
 
@@ -29,7 +30,14 @@ type Props = {
 }
 export function LibraryProvider({ children }: Props) {
 	const { api } = useAuth()
-	const [libraryId, setLibraryId] = useState<string>(localStorage.getItem('library_id') ?? DEFAULT_LIBRARY_ID)
+	const [urlLibraryId, setLibraryId] = useSearchParam('library')
+	const libraryId = useMemo(() => {
+		return urlLibraryId ?? localStorage.getItem('library_id') ?? DEFAULT_LIBRARY_ID
+	}, [urlLibraryId])
+	useEffect(() => {
+		if (urlLibraryId !== libraryId) setLibraryId(libraryId)
+	}, [urlLibraryId, libraryId])
+
 	const [library, setLibrary] = useState<Partial<ApiLibrary> & { id: string }>({ id: libraryId })
 
 	const changeLibraryId = useCallback((libraryId: string) => {
