@@ -1,4 +1,4 @@
-import { useMemo } from 'preact/hooks'
+import { useEffect, useMemo, useState } from 'preact/hooks'
 import { AdminPanel } from './components/AdminPanel'
 import { Album } from './components/Album'
 import { Icons } from './components/Icons'
@@ -9,7 +9,7 @@ import { useLibrary } from './hooks/useLibrary'
 import { useSearchParam } from './hooks/useSearchParam'
 
 export function App() {
-	const { user } = useAuth()
+	const { api, user } = useAuth()
 	const { libraryId, library, changeLibraryId } = useLibrary()
 
 	const [admin, setAdmin] = useSearchParam('admin')
@@ -19,16 +19,30 @@ export function App() {
 		return library.albums?.find(a => a.id === albumId)
 	}, [library, albumId])
 
+	const [libraries, setLibraries] = useState<string[]>([])
+	useEffect(() => {
+		if (user?.library_access?.includes(libraryId)) {
+			setLibraries(user.library_access)
+		} else {
+			setLibraries([libraryId, ...user?.library_access ?? []])
+		}
+		if (user?.admin_access) {
+			api.getLibraries().then(l => {
+				setLibraries(l)
+			})
+		}
+	}, [api, user, libraryId])
+
 	return <main class="p-6">
-		<div class="mb-4 flex gap-4 flex-wrap">
+		<div class="mb-4 flex flex-wrap gap-4">
 			<div class="flex">
 				<button class="flex items-center gap-1 hover:underline font-bold" onClick={() => setAdmin(undefined)}>
 					{Icons.repo}
 					<span>{libraryId}</span>
 				</button>
-				{user?.library_access && <div class="relative w-6 h-6">
+				{libraries.length > 1 && <div class="relative w-6 h-6">
 					<select class="absolute w-full h-full outline-none cursor-pointer" onChange={e => changeLibraryId((e.target as HTMLSelectElement).value)}>
-						{user.library_access.map(id => <option key={id}>{id}</option>)}	
+						{libraries.map(id => <option key={id}>{id}</option>)}	
 					</select>
 					<div class="absolute w-full h-full flex justify-center items-center pointer-events-none bg-white">{Icons.chevron_down}</div>
 				</div>}
