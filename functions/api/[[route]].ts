@@ -6,6 +6,8 @@ import { handle } from 'hono/cloudflare-pages'
 import { cors } from 'hono/cors'
 import { z } from 'zod'
 
+type Optional<T, E extends keyof T> = Omit<T, E> & Partial<Pick<T, E>>
+
 declare const crypto: import('@cloudflare/workers-types').Crypto
 
 function generateId(length: number) {
@@ -28,32 +30,88 @@ type User = {
 	password: string,
 	library_access: string[],
 	admin_access: boolean,
-}
-
-type Library = {
-	id: string,
+	created_by?: string,
 	timestamp: string,
-	albums: Album[],
+}
+type SafeUser = Optional<User, 'password' | 'created_by' | 'timestamp'>
+
+type Actor = SafeUser | undefined
+
+function hasLibraryAccess(libraryId: string, actor: Actor) {
+	return actor?.admin_access || actor?.library_access.includes(libraryId)
 }
 
-type Album = {
+function safeUser(user: User, actor: SafeUser) {
+	const result: SafeUser = user
+	delete result.password
+	if (!actor.admin_access) {
+		delete result.created_by
+		delete result.timestamp
+	}
+	return result
+}
+
+type Library<A = Album> = {
+	id: string,
+	created_by: string,
+	timestamp: string,
+	albums: A[],
+}
+type SafeLibrary = Optional<Library<SafeAlbum>, 'created_by' | 'timestamp'>
+
+function safeLibrary(library: Library, actor: Actor) {
+	const result: SafeLibrary = library
+	if (!actor?.admin_access) {
+		delete result.created_by
+		delete result.timestamp
+	}
+	if (!hasLibraryAccess(library.id, actor)) {
+		result.albums = library.albums.map(a => safeAlbum(a, actor))
+	}
+	return result
+}
+
+type Album<P = Photo> = {
 	id: string,
 	name: string,
 	cover?: string,
-	timestamp: string,
 	public: boolean,
-	photos: Photo[],
+	created_by: string,
+	timestamp: string,
+	photos: P[],
+}
+type SafeAlbum = Optional<Album<SafePhoto>, 'created_by' | 'timestamp'>
+
+function safeAlbum(album: Album, actor: Actor) {
+	const result: SafeAlbum = album
+	if (!actor?.admin_access) {
+		delete result.created_by
+		delete result.timestamp
+		result.photos = album.photos.map(p => safePhoto(p, actor))
+	}
+	return result
 }
 
 type Photo = {
 	id: string,
 	author?: string,
+	uploaded_by: string,
 	timestamp: string,
+}
+type SafePhoto = Optional<Photo, 'uploaded_by' | 'timestamp'>
+
+function safePhoto(photo: Photo, actor: Actor) {
+	const result: SafePhoto = photo
+	if (!actor?.admin_access) {
+		delete result.uploaded_by
+		delete result.timestamp
+	}
+	return result
 }
 
 const app = new Hono<{
 	Bindings: Env,
-	Variables: { user: Omit<User, 'password'> | undefined },
+	Variables: { user: SafeUser | undefined },
 }>().basePath('/api')
 
 app.use('*', cors({
@@ -63,7 +121,7 @@ app.use('*', cors({
 
 app.use('*', async (c, next) => {
 	const auth = c.req.header('Authorization')
-	let user: Omit<User, 'password'> | undefined
+	let user: SafeUser | undefined
 	if (auth?.startsWith('Bearer ')) {
 		const token = auth.slice(7)
 		const isValid = await jwt.verify(token, c.env.TOKEN_SECRET, { throwError: true })
@@ -149,11 +207,11 @@ app.post('/user', zValidator('json', postUserSchema), async (c) => {
 		password: passwordHash,
 		library_access: body.library_access,
 		admin_access: body.admin_access,
+		created_by: admin.username,
+		timestamp: new Date().toISOString(),
 	}
 	await c.env.KV.put(`user-${user.username}`, JSON.stringify(user))
-	const result: Omit<User, 'password'> & { password?: string } = user
-	delete result.password
-	return c.json(result)
+	return c.json(safeUser(user, admin))
 })
 
 app.get('/user/:username', async (c) => {
@@ -167,9 +225,7 @@ app.get('/user/:username', async (c) => {
 	if (authUser === undefined || authUser.username !== user.username) {
 		return c.text(`Unauthorized to access user "${user.username}"`, 401)
 	}
-	const result: Omit<User, 'password'> & { password?: string } = user
-	delete result.password
-	return c.json(result)
+	return c.json(safeUser(user, authUser))
 })
 
 const loginSchema = z.object({
@@ -192,20 +248,22 @@ app.post('/login', zValidator('json', loginSchema), async (c) => {
 		username: body.username,
 		exp: Math.floor(Date.now() / 1000) + (2 * (60 * 60)), // 2 hours
 	}, c.env.TOKEN_SECRET)
-	const result: Omit<User, 'password'> & { password?: string } = user
-	delete result.password
 	return c.json({
 		token: token,
-		user: result,
+		user: safeUser(user, user),
 	})
 })
 
 const getLibrary: MiddlewareHandler<{
 	Bindings: Env,
 	Variables: {
-		user: Omit<User, 'password'> | undefined,
+		user: SafeUser,
 		library: Library,
-		authorized: boolean,
+		authorized: true,
+	} | {
+		user: undefined,
+		library: Library,
+		authorized: false,
 	},
 }> = async (c, next) => {
 	const libraryId = c.req.query('library')
@@ -229,33 +287,36 @@ const getLibrary: MiddlewareHandler<{
 
 const postLibrarySchema = z.object({
 	id: z.string(),
-	timestamp: z.string().optional(),
 })
 app.post('/library', zValidator('json', postLibrarySchema), async (c) => {
+	const { user } = c.var
+	if (!user?.admin_access) {
+		return c.text('Unauthorized to create library', 401)
+	}
 	const body = c.req.valid('json')
 	const library: Library = {
 		id: body.id,
-		timestamp: body.timestamp ?? new Date().toISOString(),
+		created_by: user.username,
+		timestamp: new Date().toISOString(),
 		albums: [],
 	}
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
-	return c.json(library)
+	return c.json(safeLibrary(library, user))
 })
 
 app.get('/library', getLibrary, async (c) => {
-	const { library, authorized } = c.var
+	const { user, library, authorized } = c.var
 	let result: Library & { authorized?: boolean } = library
 	result.authorized = authorized
-	return c.json(result)
+	return c.json(safeLibrary(library, user))
 })
 
 const postAlbumSchema = z.object({
 	name: z.string(),
-	timestamp: z.string().optional(),
 	public: z.boolean().optional(),
 })
 app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) => {
-	const { library, authorized } = c.var
+	const { user, library, authorized } = c.var
 	if (!authorized) {
 		return c.text(`Unauthorized to access library "${library.id}"`, 401)
 	}
@@ -264,16 +325,17 @@ app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) =>
 		return c.text(`Album with name "${body.name}" already exists`, 400)
 	}
 	const albumId = generateId(16)
-	const album = {
+	const album: Album = {
 		id: albumId,
 		name: body.name,
-		timestamp: body.timestamp ?? new Date().toISOString(),
 		public: body.public ?? false,
+		created_by: user.username,
+		timestamp: new Date().toISOString(),
 		photos: [],
 	}
 	library.albums.push(album)
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
-	return c.json(album)
+	return c.json(safeAlbum(album, user))
 })
 
 const patchAlbumSchema = postAlbumSchema.extend({
@@ -281,12 +343,11 @@ const patchAlbumSchema = postAlbumSchema.extend({
 	photos: z.array(z.object({
 		id: z.string(),
 		author: z.string().optional(),
-		timestamp: z.string().optional(),
 	})),
 }).partial()
 app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async (c) => {
 	const albumId = c.req.param('id')
-	const { library, authorized } = c.var
+	const { user, library, authorized } = c.var
 	if (!authorized) {
 		return c.text(`Unauthorized to access library "${library.id}"`, 401)
 	}
@@ -298,14 +359,16 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 	if (body.name) {
 		album.name = body.name
 	}
-	if (body.timestamp) {
-		album.timestamp = body.timestamp
-	}
 	if (body.photos !== undefined) {
 		const deletedPhotos = album.photos.filter(p => !body.photos!.find(q => q.id === p.id))
 		album.photos = body.photos.map(p => {
 			const photo = album.photos.find(q => q.id === p.id)
-			return { ...photo, ...p, timestamp: p.timestamp ?? photo?.timestamp ?? new Date().toISOString() }
+			return {
+				...photo,
+				...p,
+				uploaded_by: user.username,
+				timestamp: new Date().toISOString(),
+			} satisfies Photo
 		})
 		for (const photo of deletedPhotos) {
 			if (album.cover === photo.id) {
@@ -324,7 +387,7 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		album.public = body.public
 	}
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
-	return c.json(album)
+	return c.json(safeAlbum(album, user))
 })
 
 app.delete('/album/:id', getLibrary, async (c) => {
@@ -350,7 +413,7 @@ function getObjectId(id: string, size?: string) {
 }
 
 app.post('/photo', getLibrary, async (c) => {
-	const { library, authorized } = c.var
+	const { user, library, authorized } = c.var
 	if (!authorized) {
 		return c.text(`Unauthorized to access library "${library.id}"`, 401)
 	}
@@ -368,11 +431,12 @@ app.post('/photo', getLibrary, async (c) => {
 			},
 		})
 	}
-	const photo = {
+	const photo: Photo = {
 		id: photoId,
-		timestamp: formData.get('timestamp')?.toString() ?? new Date().toISOString(),
+		uploaded_by: user.username,
+		timestamp: new Date().toISOString(),
 	}
-	return c.json(photo)
+	return c.json(safePhoto(photo, user))
 })
 
 app.get('/photo/:id', async (c) => {
