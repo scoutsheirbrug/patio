@@ -8,7 +8,7 @@ export interface ApiUser {
 
 export interface ApiLibrary {
 	id: string,
-	timestamp: string,
+	timestamp?: string,
 	authorized: boolean,
 	albums: ApiAlbum[],
 }
@@ -18,14 +18,14 @@ export interface ApiAlbum {
 	name: string,
 	cover: string | null,
 	public: boolean,
-	timestamp: string,
+	timestamp?: string,
 	photos: ApiPhoto[],
 }
 
 export interface ApiPhoto {
 	id: string,
 	author: string | null,
-	timestamp: string,
+	timestamp?: string,
 }
 
 export class Api {
@@ -52,6 +52,13 @@ export class Api {
 		return await response.json() as { token: string, user: ApiUser }
 	}
 
+	async getUsers() {
+		const response = await fetch(`${API_URL}/user`, {
+			headers: this.authHeaders,
+		})
+		return await response.json() as string[]
+	}
+
 	async getUser(username: string) {
 		const response = await fetch(`${API_URL}/user/${username}`, {
 			headers: this.authHeaders,
@@ -59,9 +66,73 @@ export class Api {
 		return await response.json() as ApiUser
 	}
 
+	async postUser(username: string, password: string, adminAccess: boolean, libraryAccess: string[]) {
+		const response = await fetch(`${API_URL}/user`, {
+			method: 'POST',
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				username,
+				password,
+				admin_access: adminAccess,
+				library_access: libraryAccess,
+			}),
+		})
+		return await response.json() as ApiUser
+	}
+
+	async patchUser(username: string, changes: Partial<ApiUser>) {
+		const response = await fetch(`${API_URL}/user/${username}`, {
+			method: 'PATCH',
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(changes),
+		})
+		return await response.json() as ApiUser
+	}
+
+	async deleteUser(username: string) {
+		await fetch(`${API_URL}/user/${username}`, {
+			method: 'DELETE',
+			headers: this.authHeaders,
+		})
+	}
+
+	async getLibraries() {
+		const response = await fetch(`${API_URL}/library`, {
+			headers: this.authHeaders,
+		})
+		return await response.json() as string[]
+	}
+
 	async getLibrary(libraryId: string) {
 		const response = await fetch(`${API_URL}/library?library=${libraryId}`, {
 			headers: this.authHeaders,
+		})
+		return await response.json() as ApiLibrary
+	}
+
+	async deleteLibrary(libraryId: string) {
+		await fetch(`${API_URL}/library/${libraryId}`, {
+			method: 'DELETE',
+			headers: this.authHeaders,
+		})
+	}
+
+	async postLibrary(libraryId: string) {
+		const response = await fetch(`${API_URL}/library`, {
+			method: 'POST',
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				id: libraryId,
+			}),
 		})
 		return await response.json() as ApiLibrary
 	}

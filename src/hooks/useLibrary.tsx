@@ -32,18 +32,13 @@ export function LibraryProvider({ children }: Props) {
 	const { api } = useAuth()
 	const [urlLibraryId, setLibraryId] = useSearchParam('library')
 	const libraryId = useMemo(() => {
-		return urlLibraryId ?? localStorage.getItem('library_id') ?? DEFAULT_LIBRARY_ID
+		return urlLibraryId ?? DEFAULT_LIBRARY_ID
 	}, [urlLibraryId])
 	useEffect(() => {
-		if (urlLibraryId !== libraryId) setLibraryId(libraryId)
+		if (urlLibraryId === undefined) setLibraryId(libraryId)
 	}, [urlLibraryId, libraryId])
 
 	const [library, setLibrary] = useState<Partial<ApiLibrary> & { id: string }>({ id: libraryId })
-
-	const changeLibraryId = useCallback((libraryId: string) => {
-		localStorage.setItem('library_id', libraryId)
-		setLibraryId(libraryId)
-	}, [])
 
 	useEffect(() => {
 		api.getLibrary(libraryId)
@@ -67,7 +62,7 @@ export function LibraryProvider({ children }: Props) {
 		libraryId,
 		library,
 		authorized,
-		changeLibraryId,
+		changeLibraryId: setLibraryId,
 		changeLibrary,
 		changeAlbum,
 	}

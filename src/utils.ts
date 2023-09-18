@@ -26,3 +26,11 @@ export async function processPhoto(photo: File) {
 	)
 	return { processed, thumbnail, preview }
 }
+
+export function generatePassword(length = 16) {
+	const bytes = crypto.getRandomValues(new Uint8Array(length + 2))
+	return btoa(String.fromCharCode(...bytes))
+		.replace(/[+/=]/g, '')
+		.substring(0, length)
+		.padEnd(length, '0')
+}

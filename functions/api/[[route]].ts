@@ -25,6 +25,11 @@ type Env = {
 	TOKEN_SECRET: string,
 }
 
+type Root = {
+	users?: string[],
+	libraries?: string[],
+}
+
 type User = {
 	username: string,
 	password: string,
@@ -185,8 +190,18 @@ async function verifyPassword(plain: string, hash: string) {
 	return crypto.subtle.timingSafeEqual(pwKeyBuffer, keyBuffer)
 }
 
+app.get('/user', async (c) => {
+	const { user: admin } = c.var
+	if (!admin?.admin_access) {
+		return c.text('Unauthorized to access users', 401)
+	}
+	const rootData = await c.env.KV.get('root') ?? '{}'
+	const root = JSON.parse(rootData) as Root
+	return c.json(root.users ?? [])
+})
+
 const postUserSchema = z.object({
-	username: z.string().min(2).refine(s => /^[A-Za-z0-9._-]/.test(s)),
+	username: z.string().min(1).refine(s => /^[A-Za-z0-9._-]+$/.test(s)),
 	password: z.string(),
 	library_access: z.array(z.string()),
 	admin_access: z.boolean(),
@@ -211,7 +226,59 @@ app.post('/user', zValidator('json', postUserSchema), async (c) => {
 		timestamp: new Date().toISOString(),
 	}
 	await c.env.KV.put(`user-${user.username}`, JSON.stringify(user))
+	const rootData = await c.env.KV.get('root') ?? '{}'
+	const root = JSON.parse(rootData) as Root
+	if (!root.users) root.users = []
+	root.users.push(user.username)
+	await c.env.KV.put('root', JSON.stringify(root))
 	return c.json(safeUser(user, admin))
+})
+
+const patchUserSchema = postUserSchema.omit({
+	username: true,
+	password: true,
+}).partial()
+app.patch('/user/:username', zValidator('json', patchUserSchema), async (c) => {
+	const { user: admin } = c.var
+	const username = c.req.param('username')
+	if (!admin?.admin_access) {
+		return c.text(`Unauthorized to access user "${username}"`, 401)
+	}
+	const userData = await c.env.KV.get(`user-${username}`)
+	if (userData === null) {
+		return c.text(`User "${username}" not found`, 404)
+	}
+	const user = JSON.parse(userData) as User
+	const body = c.req.valid('json')
+	if (body.admin_access !== undefined) {
+		if (admin.username === user.username) {
+			return c.text(`Unauthorized to modify "admin_access" of yourself`, 401)
+		}
+		user.admin_access = body.admin_access
+	}
+	if (body.library_access !== undefined) {
+		user.library_access = body.library_access
+	}
+	await c.env.KV.put(`user-${user.username}`, JSON.stringify(user))
+	return c.json(safeUser(user, admin))
+})
+
+app.delete('/user/:username', async (c) => {
+	const { user: admin } = c.var
+	const username = c.req.param('username')
+	if (!admin?.admin_access) {
+		return c.text(`Unauthorized to delete user "${username}"`, 401)
+	}
+	if (admin.username === username) {
+		return c.text(`Unauthorized to delete yourself`, 401)
+	}
+	await c.env.KV.delete(`user-${username}`)
+	const rootData = await c.env.KV.get('root') ?? '{}'
+	const root = JSON.parse(rootData) as Root
+	if (!root.users) root.users = []
+	root.users = root.users.filter(u => u !== username)
+	await c.env.KV.put('root', JSON.stringify(root))
+	return c.text('')
 })
 
 app.get('/user/:username', async (c) => {
@@ -222,7 +289,7 @@ app.get('/user/:username', async (c) => {
 		return c.text(`User "${username}" not found`, 404)
 	}
 	const user = JSON.parse(userData) as User
-	if (authUser === undefined || authUser.username !== user.username) {
+	if (!authUser?.admin_access && (authUser === undefined || authUser.username !== user.username)) {
 		return c.text(`Unauthorized to access user "${user.username}"`, 401)
 	}
 	return c.json(safeUser(user, authUser))
@@ -259,7 +326,7 @@ const getLibrary: MiddlewareHandler<{
 	Variables: {
 		user: SafeUser,
 		library: Library,
-		authorized: true,
+		authorized: boolean,
 	} | {
 		user: undefined,
 		library: Library,
@@ -286,7 +353,7 @@ const getLibrary: MiddlewareHandler<{
 }
 
 const postLibrarySchema = z.object({
-	id: z.string(),
+	id: z.string().min(1).refine(s => /^[A-Za-z0-9._-]+$/.test(s)),
 })
 app.post('/library', zValidator('json', postLibrarySchema), async (c) => {
 	const { user } = c.var
@@ -301,14 +368,53 @@ app.post('/library', zValidator('json', postLibrarySchema), async (c) => {
 		albums: [],
 	}
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
+	const rootData = await c.env.KV.get('root') ?? '{}'
+	const root = JSON.parse(rootData) as Root
+	if (!root.libraries) root.libraries = []
+	root.libraries.push(library.id)
+	await c.env.KV.put('root', JSON.stringify(root))
 	return c.json(safeLibrary(library, user))
 })
 
-app.get('/library', getLibrary, async (c) => {
+app.get('/library', async (c, next) => {
+	if (!c.req.query('library')) {
+		const { user: admin } = c.var
+		if (!admin?.admin_access) {
+			return c.text('Unauthorized to access libraries', 401)
+		}
+		const rootData = await c.env.KV.get('root') ?? '{}'
+		const root = JSON.parse(rootData) as Root
+		return c.json(root.libraries ?? [])
+	}
+	await next()
+}, getLibrary, async (c) => {
 	const { user, library, authorized } = c.var
 	let result: Library & { authorized?: boolean } = library
 	result.authorized = authorized
 	return c.json(safeLibrary(library, user))
+})
+
+app.delete('/library/:id', async (c) => {
+	const { user: admin } = c.var
+	const libraryId = c.req.param('id')
+	if (!admin?.admin_access) {
+		return c.text(`Unauthorized to delete library "${libraryId}"`, 401)
+	}
+	let libraryData = await c.env.KV.get(`library-${libraryId}`)
+	if (libraryData === null) {
+		return c.text(`Library "${libraryId}" not found`, 404)
+	}
+	const library = JSON.parse(libraryData) as Library
+	if (library.albums.length > 0) {
+		return c.text(`Not allowed to delete library with albums`, 400)
+	}
+	await c.env.KV.delete(`library-${libraryId}`)
+	const rootData = await c.env.KV.get('root') ?? '{}'
+	const root = JSON.parse(rootData) as Root
+	if (!root.libraries) root.libraries = []
+	root.libraries = root.libraries.filter(l => l !== libraryId)
+	await c.env.KV.put('root', JSON.stringify(root))
+	return c.text('')
 })
 
 const postAlbumSchema = z.object({

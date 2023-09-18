@@ -1,13 +1,14 @@
-import { useCallback, useRef, useState } from 'preact/hooks'
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { Icons } from './Icons'
 
 type Props = {
 	value: string
 	onChange: (value: string) => void
 	editable?: boolean,
+	autofocus?: boolean,
 	class?: string,
 }
-export function EditableText({ value, onChange, editable, class: clazz }: Props) {
+export function EditableText({ value, onChange, editable, autofocus, class: clazz }: Props) {
 	const [newValue, setNewValue] = useState<string>()
 	const inputRef = useRef<HTMLInputElement>(null)
 
@@ -18,6 +19,10 @@ export function EditableText({ value, onChange, editable, class: clazz }: Props)
 		})
 	}, [value])
 
+	useEffect(() => {
+		if (autofocus) startEditing()
+	}, [])
+
 	const onEnter = useCallback((e: KeyboardEvent | FocusEvent) => {
 		if (e instanceof FocusEvent || e.key === 'Enter') {
 			if (newValue !== undefined && newValue.length > 0) {
@@ -27,11 +32,11 @@ export function EditableText({ value, onChange, editable, class: clazz }: Props)
 		}
 	}, [newValue, onChange])
 
-	return <div class={`group w-full ${editable ? 'cursor-pointer' : ''}`} onClick={newValue !== undefined || editable === false ? undefined : startEditing}>
+	return <div class={`group w-full ${editable ? 'cursor-pointer' : ''}`} onClick={newValue !== undefined || !editable ? undefined : startEditing}>
 		{newValue === undefined
 			? <>
 				<div class={`border-b border-transparent ${clazz}`}>
-					{value}
+					{value}&nbsp;
 					{editable && <span class="hidden group-hover:inline [&>*]:inline [&>*]:mb-1">{Icons.pencil}</span>}
 				</div>
 			</>
