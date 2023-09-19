@@ -43,6 +43,7 @@ export function Album({ library, album, photo }: Props) {
     }
     await api.deleteAlbum(library.id, album.id)
     changeLibrary({ albums: library.albums?.filter(a => a.id !== album.id) ?? [] })
+		route(`/${library.id}`)
   }, [api, library, album, changeLibrary])
 
 	const onChangeCover = useCallback(async (id: string | null) => {
@@ -200,7 +201,7 @@ export function Album({ library, album, photo }: Props) {
 		return () => window.removeEventListener('resize', onResize)
 	}, [])
 
-	return <div>
+	return <>
 		<Actionbar nowrap>
 			<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
 			{authorized && <>
@@ -211,7 +212,7 @@ export function Album({ library, album, photo }: Props) {
 				<Action icon="trash" onClick={onDeleteAlbum} danger>Verwijder album</Action>
 			</>}
 		</Actionbar>
-		<div class="pt-1 pb-4" onMouseUp={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+		<div class={`py-2 ${!photo && authorized ? 'sticky bg-white z-10 top-0' : ''}`} onMouseUp={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
 			<Actionbar>
 				<span>{album.photos.length} Foto's</span>
 				{authorized && <>
@@ -227,12 +228,12 @@ export function Album({ library, album, photo }: Props) {
 				</>}
 			</Actionbar>
 		</div>
-		<div ref={dragArea} class="flex flex-wrap gap-1" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
-			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
+		<div ref={dragArea} class="flex flex-wrap gap-1 mt-2" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
+			{dragSortedPhotos.map(p => <Link key={p.id} class="photo-container relative" href={authorized ? undefined : `/${library.id}/${album.id}/${p.id}`} onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
 				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={api.getPhotoUrl(p.id, 'thumbnail')} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
 				{authorized && <Link class="absolute w-8 h-8 top-[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" href={`/${library.id}/${album.id}/${p.id}`} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</Link>}
-			</div>)}
+			</Link>)}
 			{uploadProgress.map(progress => <div class="photo-container relative">
 				{progress.preview === undefined
 					? <div class="absolute w-full h-full bg-gradient-to-br bg-gray-200" />
@@ -252,5 +253,5 @@ export function Album({ library, album, photo }: Props) {
 			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={api.getPhotoUrl(photo.id, 'preview')} detailed={api.getPhotoUrl(photo.id, 'original')} onClick={e => e.stopPropagation()} />
 			<DetailActions album={album.photos.map(p => p.id)} id={photo.id} changeId={onViewPhoto} downloadUrl={api.getPhotoUrl(photo.id, 'original')} />
 		</div>}
-	</div>
+	</>
 }

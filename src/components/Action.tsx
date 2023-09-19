@@ -4,27 +4,29 @@ import { Icons } from './Icons'
 
 type Props = {
 	icon?: keyof typeof Icons,
-	danger?: true,
-	bold?: true,
+	danger?: boolean,
+	bold?: boolean,
 	link?: string,
 	onClick?: () => void,
-	children: ComponentChildren,
+	children?: ComponentChildren,
 }
 export function Action({ icon, danger, bold, link, onClick, children }: Props) {
+	const clazz = `flex gap-1 items-center whitespace-nowrap ${danger ? 'text-red-800 fill-current' : ''}`
+	const content = <>
+		{icon && Icons[icon]}
+		<span class={bold ? 'font-bold' : ''}>{children}</span>
+	</>
 	if (link !== undefined) {
-		return<Link class={`flex gap-1 items-center whitespace-nowrap hover:underline ${danger ? 'text-red-800 fill-current' : ''}`} href={link} onClick={onClick ? (e => {onClick();e.preventDefault()}) : undefined}>
-			{icon && Icons[icon]}
-			<span class={bold ? 'font-bold' : ''}>{children}</span>
+		return<Link class={`${clazz} hover:underline`} href={link} onClick={onClick ? (e => {onClick();e.preventDefault()}) : undefined}>
+			{content}
 		</Link>
 	}
 	if (onClick !== undefined) {
-		return<button class={`flex gap-1 items-center whitespace-nowrap hover:underline ${danger ? 'text-red-800 fill-current' : ''}`} onClick={onClick}>
-			{icon && Icons[icon]}
-			<span class={bold ? 'font-bold' : ''}>{children}</span>
+		return<button class={`${clazz} hover:underline`} onClick={e => {onClick();e.stopPropagation()}}>
+			{content}
 		</button>
 	}
-	return <div class={`flex gap-1 items-center whitespace-nowrap ${danger ? 'text-red-800 fill-current' : ''}`}>
-		{icon && Icons[icon]}
-		<span class={bold ? 'font-bold' : ''}>{children}</span>
+	return <div class={clazz}>
+		{content}
 	</div>
 }

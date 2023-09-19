@@ -25,5 +25,9 @@ export function AlbumPage(props: Props) {
 		return album.photos.find(p => p.id === photoId)
 	}, [album, photoId])
 
+	useEffect(() => {
+		document.documentElement.classList.toggle('overflow-hidden', photo !== undefined)
+	}, [photo])
+
 	return <Album library={library as ApiLibrary} album={album} photo={photo} />
 }

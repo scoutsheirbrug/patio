@@ -1,9 +1,12 @@
 import { route } from 'preact-router'
+import { useEffect } from 'preact/hooks'
 
 type Props = {
 	path: string
 }
 export function HomePage({}: Props) {
-	route('/scoutsheirbrug')
+	useEffect(() => {
+		route('/scoutsheirbrug')
+	}, [])
 	return <></>
 }
