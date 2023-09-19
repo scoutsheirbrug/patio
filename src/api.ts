@@ -8,7 +8,6 @@ export interface ApiUser {
 
 export interface ApiLibrary {
 	id: string,
-	timestamp?: string,
 	authorized: boolean,
 	albums: ApiAlbum[],
 }
@@ -19,14 +18,13 @@ export interface ApiAlbum {
 	slug?: string,
 	cover: string | null,
 	public: boolean,
-	timestamp?: string,
+	date?: string,
 	photos: ApiPhoto[],
 }
 
 export interface ApiPhoto {
 	id: string,
 	author: string | null,
-	timestamp?: string,
 }
 
 export class Api {

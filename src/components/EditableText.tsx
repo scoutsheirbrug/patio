@@ -5,10 +5,11 @@ type Props = {
 	value: string
 	onChange: (value: string) => void
 	editable?: boolean,
+	nopencil?: boolean,
 	autofocus?: boolean,
 	class?: string,
 }
-export function EditableText({ value, onChange, editable, autofocus, class: clazz }: Props) {
+export function EditableText({ value, onChange, editable, nopencil, autofocus, class: clazz }: Props) {
 	const [newValue, setNewValue] = useState<string>()
 	const inputRef = useRef<HTMLInputElement>(null)
 
@@ -37,7 +38,7 @@ export function EditableText({ value, onChange, editable, autofocus, class: claz
 			? <>
 				<div class={`border-b border-transparent ${clazz}`}>
 					{value}&nbsp;
-					{editable && <span class="hidden group-hover:inline [&>*]:inline [&>*]:mb-1">{Icons.pencil}</span>}
+					{editable && !nopencil && <span class="hidden group-hover:inline [&>*]:inline [&>*]:mb-1">{Icons.pencil}</span>}
 				</div>
 			</>
 			: <input ref={inputRef} class={`outline-none border-b border-gray-300 bg-gray-50 ${clazz}`} type="text" value={newValue} onInput={(e) => setNewValue((e.target as HTMLInputElement).value)} onKeyDown={onEnter} onBlur={onEnter} />}

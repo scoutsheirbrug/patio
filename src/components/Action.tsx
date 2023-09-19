@@ -6,11 +6,12 @@ type Props = {
 	icon?: keyof typeof Icons,
 	danger?: boolean,
 	bold?: boolean,
+	clickable?: boolean,
 	link?: string,
 	onClick?: () => void,
 	children?: ComponentChildren,
 }
-export function Action({ icon, danger, bold, link, onClick, children }: Props) {
+export function Action({ icon, danger, bold, clickable, link, onClick, children }: Props) {
 	const clazz = `flex gap-1 items-center whitespace-nowrap ${danger ? 'text-red-800 fill-current' : ''}`
 	const content = <>
 		{icon && Icons[icon]}
@@ -26,7 +27,7 @@ export function Action({ icon, danger, bold, link, onClick, children }: Props) {
 			{content}
 		</button>
 	}
-	return <div class={clazz}>
+	return <div class={`${clazz} ${clickable ? 'hover:underline cursor-pointer' : ''}`}>
 		{content}
 	</div>
 }

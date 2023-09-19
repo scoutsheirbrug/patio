@@ -30,6 +30,14 @@ export function Album({ library, album, photo }: Props) {
 		changeAlbum(album.id, newAlbum)
 	}, [api, library, album, changeAlbum])
 
+	const onChangeDate = useCallback(async (str: string) => {
+		const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/)
+		if (!match) return
+		const date = `${match[3]}-${match[2]}-${match[1]}`
+		const newAlbum = await api.patchAlbum(library.id, album.id, { date })
+		changeAlbum(album.id, newAlbum)
+	}, [api, library, album, changeAlbum])
+
 	const onChangeVisibility = useCallback(async (isPublic: boolean) => {
 		if (isPublic === album.public) return
 		const newAlbum = await api.patchAlbum(library.id, album.id, { public: isPublic })
@@ -206,6 +214,9 @@ export function Album({ library, album, photo }: Props) {
 			<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
 			{authorized && <>
 				<div class="ml-auto"></div>
+				<Action icon="calendar" clickable>
+					<EditableText class="max-w-[100px]" value={new Date(album.date ?? new Date()).toLocaleDateString('nl-BE')} onChange={onChangeDate} editable nopencil />
+				</Action>
 				<Action icon={album.public ? 'globe' : 'lock'} onClick={() => onChangeVisibility(!album.public)}>
 					{album.public ? 'Openbaar' : 'Verborgen'}
 				</Action>

@@ -51,7 +51,7 @@ type SafeUser = Optional<User, 'password' | 'created_by' | 'timestamp'>
 type Actor = SafeUser | undefined
 
 function hasLibraryAccess(libraryId: string, actor: Actor) {
-	return actor?.admin_access || actor?.library_access.includes(libraryId)
+	return actor?.admin_access || actor?.library_access.includes(libraryId) || false
 }
 
 function safeUser(user: User, actor: Actor) {
@@ -90,6 +90,7 @@ type Album<P = Photo> = {
 	slug?: string,
 	cover?: string,
 	public: boolean,
+	date?: string,
 	created_by: string,
 	timestamp: string,
 	photos: P[],
@@ -432,6 +433,7 @@ const postAlbumSchema = z.object({
 	name: z.string(),
 	slug: z.string().optional(),
 	public: z.boolean().optional(),
+	date: z.string().optional(),
 })
 app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) => {
 	const { user, library, authorized } = c.var
@@ -452,11 +454,13 @@ app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) =>
 		name: body.name,
 		slug: slug,
 		public: body.public ?? false,
+		date: body.date ?? new Date().toISOString().substring(0, 10),
 		created_by: user.username,
 		timestamp: new Date().toISOString(),
 		photos: [],
 	}
 	library.albums.push(album)
+	library.albums.sort((a, b) => new Date(a.date ?? a.timestamp).getTime() - new Date(b.date ?? b.timestamp).getTime())
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
 	return c.json(safeAlbum(album, user))
 })
@@ -522,6 +526,14 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 	if (body.public !== undefined) {
 		album.public = body.public
 	}
+	if (body.date) {
+		album.date = body.date
+	}
+	if (album.date === undefined) {
+		// migrate existing albums, to be removed
+		album.date = new Date(album.timestamp).toISOString().substring(0, 10)
+	}
+	library.albums.sort((a, b) => new Date(a.date ?? a.timestamp).getTime() - new Date(b.date ?? b.timestamp).getTime())
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
 	return c.json(safeAlbum(album, user))
 })
