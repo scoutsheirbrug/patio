@@ -46,10 +46,10 @@ function hasLibraryAccess(libraryId: string, actor: Actor) {
 	return actor?.admin_access || actor?.library_access.includes(libraryId)
 }
 
-function safeUser(user: User, actor: SafeUser) {
+function safeUser(user: User, actor: Actor) {
 	const result: SafeUser = user
 	delete result.password
-	if (!actor.admin_access) {
+	if (!actor?.admin_access) {
 		delete result.created_by
 		delete result.timestamp
 	}
@@ -129,17 +129,19 @@ app.use('*', async (c, next) => {
 	let user: SafeUser | undefined
 	if (auth?.startsWith('Bearer ')) {
 		const token = auth.slice(7)
-		const isValid = await jwt.verify(token, c.env.TOKEN_SECRET, { throwError: true })
-		if (isValid) {
-			const { payload } = jwt.decode(token)
-			if (typeof payload.username === 'string') {
-				const userData = await c.env.KV.get(`user-${payload.username}`)
-				if (userData !== null) {
-					user = JSON.parse(userData)
-					delete (user as any).password
-				}
-			}
+		const isValid = await jwt.verify(token, c.env.TOKEN_SECRET)
+		if (!isValid) {
+			return c.text('Invalid token', 401)
 		}
+		const { payload } = jwt.decode(token)
+		if (typeof payload.username !== 'string') {
+			return c.text('Malformed token', 401)
+		}
+		const userData = await c.env.KV.get(`user-${payload.username}`)
+		if (userData === null) {
+			return c.text('User from token not found ', 401)
+		}
+		user = safeUser(JSON.parse(userData) as User, undefined)
 	} else if (c.env.ADMIN_SECRET !== undefined && auth === c.env.ADMIN_SECRET) {
 		user = {
 			username: 'admin',
