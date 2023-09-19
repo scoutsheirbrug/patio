@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
+import { Action } from './components/Action'
+import { Actionbar } from './components/Actionbar'
 import { AdminPanel } from './components/AdminPanel'
 import { Album } from './components/Album'
 import { Icons } from './components/Icons'
@@ -34,12 +36,9 @@ export function App() {
 	}, [api, user, libraryId])
 
 	return <main class="p-6">
-		<div class="mb-4 flex flex-wrap gap-4">
+		<Actionbar>
 			<div class="flex">
-				<button class="flex items-center gap-1 hover:underline font-bold" onClick={() => setAdmin(undefined)}>
-					{Icons.repo}
-					<span>{libraryId}</span>
-				</button>
+				<Action icon="repo" onClick={() => setAdmin(undefined)} bold>{libraryId}</Action>
 				{libraries.length > 1 && <div class="relative w-6 h-6">
 					<select class="absolute w-full h-full outline-none cursor-pointer" onChange={e => changeLibraryId((e.target as HTMLSelectElement).value)}>
 						{libraries.map(id => <option key={id}>{id}</option>)}	
@@ -50,7 +49,8 @@ export function App() {
 			<div class="mx-auto"></div>
 			{user?.admin_access && <button onClick={() => setAdmin(admin === 'true' ? undefined : 'true')}>{Icons.gear}</button>}
 			<LoginPopup />
-		</div>
+		</Actionbar>
+		<div class="mb-4" />
 		{admin === 'true' && user?.admin_access
 			? <AdminPanel />
 			: library === undefined
@@ -58,7 +58,7 @@ export function App() {
 				: album === undefined
 					? <Library onSelect={setAlbumId} />
 					: <>
-						<button class="py-2 hover:underline flex items-center" onClick={() => setAlbumId(undefined)}>{Icons.arrow_left} Alle albums</button>
+						<Action icon="arrow_left" onClick={() => setAlbumId(undefined)}>Alle albums</Action>
 						<Album album={album} />
 					</>}
 	</main>

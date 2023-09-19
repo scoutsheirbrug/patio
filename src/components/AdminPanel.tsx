@@ -3,6 +3,8 @@ import { ApiUser } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
 import { generatePassword } from '../utils'
+import { Action } from './Action'
+import { Actionbar } from './Actionbar'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
 
@@ -147,23 +149,16 @@ export function AdminPanel() {
 				{username}
 				</h2>
 				{user && <>
-					<div class="flex gap-4 mt-1">
+					<Actionbar>
 						{admin.username === username ? <>
-							<div class="flex items-center gap-1 whitespace-nowrap">
-								{Icons.shield_check}
-								<span>Admin</span>
-							</div>
+							<Action icon="shield_check">Admin</Action>
 						</> : <>
-							<button class="flex items-center gap-1 whitespace-nowrap hover:underline" onClick={() => onChangeAdmin(!user.admin_access)}>
-								{user.admin_access ? Icons.shield_slash : Icons.shield_check}
-								<span>{user.admin_access ? 'Verwijder admin' : 'Maak admin'}</span>
-							</button>
-							<button class="flex items-center gap-1 whitespace-nowrap hover:underline text-red-800 fill-red-800" onClick={onDeleteUser}>
-								{Icons.trash}
-								<span>Verwijder gebruiker</span>
-							</button>
+							<Action icon={user.admin_access ? 'shield_slash' : 'shield_check'} onClick={() => onChangeAdmin(!user.admin_access)}>
+								{user.admin_access ? 'Verwijder admin' : 'Maak admin'}
+							</Action>
+							<Action icon="trash" onClick={onDeleteUser} danger>Verwijder gebruiker</Action>
 						</>}
-					</div>
+					</Actionbar>
 					<h3 class="flex items-center gap-1 font-bold text-lg mt-3">{Icons.repo} Collecties</h3>
 					<ul class="pl-3">
 						{user.library_access.map(id => <button class="block hover:underline" onClick={() => selectLibrary(id)}>
@@ -172,15 +167,10 @@ export function AdminPanel() {
 					</ul>
 				</>}
 			</> : <>
-				<h2 class="font-bold text-2xl">
-					{libraryId}
-				</h2>
-				<div class="flex gap-4 mt-1">
-					<button class="flex items-center gap-1 whitespace-nowrap hover:underline text-red-800 fill-red-800" onClick={onDeleteLibrary}>
-						{Icons.trash}
-						<span>Verwijder collectie</span>
-					</button>
-				</div>
+				<h2 class="font-bold text-2xl">{libraryId}</h2>
+				<Actionbar>
+					<Action icon="trash" onClick={onDeleteLibrary} danger>Verwijder collectie</Action>
+				</Actionbar>
 			</>}
 		</div>
 		<div class="border-l-2 py-1 px-2 w-50 shrink-0 h-full flex flex-col scroll">

@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
 import { useSearchParam } from '../hooks/useSearchParam'
 import { processPhoto } from '../utils'
+import { Action } from './Action'
+import { Actionbar } from './Actionbar'
 import { DetailActions } from './DetailActions'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
@@ -194,37 +196,33 @@ export function Album({ album }: Props) {
 	}, [])
 
 	return <div>
-		<div class="flex gap-4">
+		<Actionbar nowrap>
 			<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
 			{authorized && <>
-				<button class="flex items-center hover:underline ml-auto" onClick={() => onChangeVisibility(!album.public)}>
-					{album.public ? Icons.globe : Icons.lock}
-					<span class="ml-1">{album.public ? 'Openbaar' : 'Verborgen'}</span>
-				</button>
-				<button class="flex items-center whitespace-nowrap hover:underline text-red-800 fill-red-800" onClick={onDeleteAlbum}>
-					{Icons.trash}
-					<span class="ml-1">Verwijder album</span>
-				</button>
+				<div class="ml-auto"></div>
+				<Action icon={album.public ? 'globe' : 'lock'} onClick={() => onChangeVisibility(!album.public)}>
+					{album.public ? 'Openbaar' : 'Verborgen'}
+				</Action>
+				<Action icon="trash" onClick={onDeleteAlbum} danger>Verwijder album</Action>
 			</>}
+		</Actionbar>
+		<div class="pt-1 pb-4" onMouseUp={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+			<Actionbar>
+				<span>{album.photos.length} Foto's</span>
+				{authorized && <>
+					<Action icon={selectedIds.length === 0 ? 'issue_closed' : 'x_circle'} onClick={() => setSelectedIds(selectedIds.length === 0 ? album.photos.map(p => p.id) : [])}>
+						{selectedIds.length === 0 ? 'Selecteer alles' : 'Deselecteer alles'}
+					</Action>
+					{selectedIds.length === 1 && <Action icon={album.cover === selectedIds[0] ? 'pin_slash' : 'pin'} onClick={() => onChangeCover(album.cover === selectedIds[0] ? null : selectedIds[0])}>
+						{album.cover === selectedIds[0] ? 'Verwijder albumcover' : 'Maak albumcover'}
+					</Action>}
+					{selectedIds.length > 0 && <Action icon="trash" onClick={() => onDeletePhotos(selectedIds)} danger>
+						Verwijder {selectedIds.length === 1 ? 'foto' : `${selectedIds.length} foto\'s`}
+					</Action>}
+				</>}
+			</Actionbar>
 		</div>
-		<div class="flex gap-4 mt-1 flex-wrap" onMouseUp={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-			<span>{album.photos.length} Foto's</span>
-			{authorized && <>
-				<button class="flex items-center hover:underline" onClick={() => setSelectedIds(selectedIds.length === 0 ? album.photos.map(p => p.id) : [])}>
-					{selectedIds.length === 0 ? Icons.issue_closed : Icons.x_circle}
-					<span class="ml-1">{selectedIds.length === 0 ? 'Selecteer alles' : 'Deselecteer alles'}</span>
-				</button>
-				{selectedIds.length === 1 && <button class="flex items-center hover:underline" onClick={() => onChangeCover(album.cover === selectedIds[0] ? null : selectedIds[0])}>
-					{album.cover === selectedIds[0] ? Icons.pin_slash : Icons.pin}
-					<span class="ml-1">{album.cover === selectedIds[0] ? 'Verwijder albumcover' : 'Maak albumcover'}</span>
-				</button>}
-				{selectedIds.length > 0 && <button class="flex items-center hover:underline text-red-800 fill-red-800" onClick={() => onDeletePhotos(selectedIds)}>
-					{Icons.trash}
-					<span class="ml-1">Verwijder {selectedIds.length === 1 ? 'foto' : `${selectedIds.length} foto\'s`}</span>
-				</button>}
-			</>}
-		</div>
-		<div ref={dragArea} class="flex flex-wrap gap-1 mt-4" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
+		<div ref={dragArea} class="flex flex-wrap gap-1" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
 			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
 				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={api.getPhotoUrl(p.id, 'thumbnail')} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
