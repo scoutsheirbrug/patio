@@ -1,25 +1,20 @@
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { createHashHistory } from 'history'
+import Router, { CustomHistory, route } from 'preact-router'
+import { useEffect, useState } from 'preact/hooks'
 import { Action } from './components/Action'
 import { Actionbar } from './components/Actionbar'
-import { AdminPanel } from './components/AdminPanel'
-import { Album } from './components/Album'
 import { Icons } from './components/Icons'
-import { Library } from './components/Library'
 import { LoginPopup } from './components/LoginPopup'
 import { useAuth } from './hooks/useAuth'
 import { useLibrary } from './hooks/useLibrary'
-import { useSearchParam } from './hooks/useSearchParam'
+import { AdminPage } from './pages/AdminPage'
+import { AlbumPage } from './pages/AlbumPage'
+import { HomePage } from './pages/HomePage'
+import { LibraryPage } from './pages/LibraryPage'
 
 export function App() {
 	const { api, user } = useAuth()
-	const { libraryId, library, changeLibraryId } = useLibrary()
-
-	const [admin, setAdmin] = useSearchParam('admin')
-
-	const [albumId, setAlbumId] = useSearchParam('album')
-	const album = useMemo(() => {
-		return library.albums?.find(a => a.id === albumId)
-	}, [library, albumId])
+	const { libraryId } = useLibrary()
 
 	const [libraries, setLibraries] = useState<string[]>([])
 	useEffect(() => {
@@ -35,31 +30,29 @@ export function App() {
 		}
 	}, [api, user, libraryId])
 
+	const history = createHashHistory() as unknown as CustomHistory
+
 	return <main class="p-6">
 		<Actionbar>
 			<div class="flex">
-				<Action icon="repo" onClick={() => setAdmin(undefined)} bold>{libraryId}</Action>
+				<Action icon="repo" link={`/${libraryId}`} bold>{libraryId}</Action>
 				{libraries.length > 1 && <div class="relative w-6 h-6">
-					<select class="absolute w-full h-full outline-none cursor-pointer" onChange={e => changeLibraryId((e.target as HTMLSelectElement).value)}>
+					<select class="absolute w-full h-full outline-none cursor-pointer" value={libraryId} onChange={e => route(`/${(e.target as HTMLSelectElement).value}`)}>
 						{libraries.map(id => <option key={id}>{id}</option>)}	
 					</select>
 					<div class="absolute w-full h-full flex justify-center items-center pointer-events-none bg-white">{Icons.chevron_down}</div>
 				</div>}
 			</div>
 			<div class="mx-auto"></div>
-			{user?.admin_access && <button onClick={() => setAdmin(admin === 'true' ? undefined : 'true')}>{Icons.gear}</button>}
+			{user?.admin_access && <button onClick={() => route('/admin')}>{Icons.gear}</button>}
 			<LoginPopup />
 		</Actionbar>
 		<div class="mb-4" />
-		{admin === 'true' && user?.admin_access
-			? <AdminPanel />
-			: library === undefined
-				? <>Loading library...</>
-				: album === undefined
-					? <Library onSelect={setAlbumId} />
-					: <>
-						<Action icon="arrow_left" onClick={() => setAlbumId(undefined)}>Alle albums</Action>
-						<Album album={album} />
-					</>}
+		<Router history={history}>
+			<HomePage path="/" />
+			<AdminPage path="/admin" />
+			<LibraryPage path="/:libraryId" />
+			<AlbumPage path="/:libraryId/:albumId/:photoId?" />
+		</Router>
 	</main>
 }

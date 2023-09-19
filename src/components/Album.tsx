@@ -1,8 +1,8 @@
+import { Link, route } from 'preact-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { ApiAlbum } from '../api'
+import { ApiAlbum, ApiLibrary, ApiPhoto } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
-import { useSearchParam } from '../hooks/useSearchParam'
 import { processPhoto } from '../utils'
 import { Action } from './Action'
 import { Actionbar } from './Actionbar'
@@ -12,11 +12,14 @@ import { Icons } from './Icons'
 import { ProgressiveImage } from './ProgressiveImage'
 
 type Props = {
+	library: ApiLibrary,
 	album: ApiAlbum,
+	photo?: ApiPhoto,
 }
-export function Album({ album }: Props) {
-	const { api } = useAuth()
-	const { library, authorized, changeLibrary, changeAlbum } = useLibrary()
+export function Album({ library, album, photo }: Props) {
+	const { api, isAuthorized } = useAuth()
+	const { changeLibrary, changeAlbum } = useLibrary()
+  const authorized = isAuthorized(library.id)
 
 	const fileInput = useRef<HTMLInputElement>(null)
 	const [uploadProgress, setUploadProgress] = useState<{ loading: boolean, preview?: string }[]>([])
@@ -90,12 +93,14 @@ export function Album({ album }: Props) {
 		}
 	}, [api, library, album, changeAlbum, fileInput])
 
-	const [detailPhoto, setDetailPhoto] = useSearchParam('photo')
-
-	const onViewPhoto = useCallback((id: string, e: MouseEvent) => {
-		setDetailPhoto(id)
-		e.stopPropagation()
-	}, [])
+	const onViewPhoto = useCallback((id: string | undefined, e?: MouseEvent) => {
+		if (id === undefined) {
+			route(`/${library.id}/${album.id}`)
+		} else {
+			route(`/${library.id}/${album.id}/${id}`)
+		}
+		e?.stopPropagation()
+	}, [library, album])
 
 	const dragArea = useRef<HTMLDivElement>(null)
 	const lastId = useRef<string>()
@@ -226,7 +231,7 @@ export function Album({ album }: Props) {
 			{dragSortedPhotos.map(p => <div key={p.id} class="photo-container relative" onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
 				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={api.getPhotoUrl(p.id, 'thumbnail')} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
-				{authorized && <div class="absolute w-8 h-8 top[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" onClick={e => onViewPhoto(p.id, e)} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</div>}
+				{authorized && <Link class="absolute w-8 h-8 top-[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" href={`/${library.id}/${album.id}/${p.id}`} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</Link>}
 			</div>)}
 			{uploadProgress.map(progress => <div class="photo-container relative">
 				{progress.preview === undefined
@@ -243,9 +248,9 @@ export function Album({ album }: Props) {
 				</div>
 			</div>}
 		</div>
-		{detailPhoto && <div class="fixed top-0 left-0 w-full h-full p-2 flex items-center justify-center bg-black bg-opacity-80" onClick={() => setDetailPhoto(undefined)}>
-			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={api.getPhotoUrl(detailPhoto, 'preview')} detailed={api.getPhotoUrl(detailPhoto, 'original')} onClick={e => e.stopPropagation()} />
-			<DetailActions album={album.photos.map(p => p.id)} id={detailPhoto} changeId={setDetailPhoto} downloadUrl={api.getPhotoUrl(detailPhoto, 'original')} />
+		{photo && <div class="fixed top-0 left-0 w-full h-full p-2 flex items-center justify-center bg-black bg-opacity-80" onClick={() => route(`/${library.id}/${album.id}`)}>
+			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={api.getPhotoUrl(photo.id, 'preview')} detailed={api.getPhotoUrl(photo.id, 'original')} onClick={e => e.stopPropagation()} />
+			<DetailActions album={album.photos.map(p => p.id)} id={photo.id} changeId={onViewPhoto} downloadUrl={api.getPhotoUrl(photo.id, 'original')} />
 		</div>}
 	</div>
 }

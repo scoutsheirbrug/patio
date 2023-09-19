@@ -8,7 +8,7 @@ import { Actionbar } from './Actionbar'
 import { EditableText } from './EditableText'
 import { Icons } from './Icons'
 
-export function AdminPanel() {
+export function AdminPanel({}: { path?: string }) {
 	const { api, user: admin } = useAuth()
 	const { libraryId, changeLibraryId } = useLibrary()
 

@@ -1,14 +1,17 @@
+import { Link } from 'preact-router'
 import { useCallback, useRef, useState } from 'preact/hooks'
+import { ApiLibrary } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
 import { Icons } from './Icons'
 
 type Props = {
-  onSelect: (id: string) => void,
+  library: ApiLibrary,
 }
-export function Library({ onSelect }: Props) {
-  const { api } = useAuth()
-  const { library, authorized, changeLibrary } = useLibrary()
+export function Library({ library }: Props) {
+  const { api, isAuthorized } = useAuth()
+  const { changeLibrary } = useLibrary()
+  const authorized = isAuthorized(library.id)
 
   const addRef = useRef<HTMLInputElement>(null)
   const [newName, setNewName] = useState<string>()
@@ -32,11 +35,11 @@ export function Library({ onSelect }: Props) {
 
   return <div class="flex flex-wrap gap-2">
     {library.albums?.map(a => <div key={a.id} class="w-64">
-      <div class="relative group h-64 cursor-pointer" onClick={() => onSelect(a.id)}>
+      <Link class="block relative group h-64 cursor-pointer" href={`/${library.id}/${a.id}`}>
         {a.cover
           ? <img class="absolute w-full h-full rounded-lg object-cover" src={api.getPhotoUrl(a.cover, 'thumbnail')} />
           : <div class="absolute w-full h-full bg-gradient-to-br from-gray-200 to-slate-300 rounded-lg" />}
-      </div>
+      </Link>
       <div class="flex items-center [&>svg]:shrink-0 [&>svg]:mr-1 mt-1">
         {!a.public && Icons.lock}
         <span class="font-bold text-2xl w-full">{a.name}</span>

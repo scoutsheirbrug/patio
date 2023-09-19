@@ -7,6 +7,7 @@ type AuthContext = {
 	api: Api,
 	login: (username: string, password: string) => Promise<boolean>,
 	logout: () => void,
+	isAuthorized: (libraryId: string) => boolean,
 }
 
 const AuthContext = createContext<AuthContext | undefined>(undefined)
@@ -75,11 +76,18 @@ export function AuthProvider({ children }: Props) {
 		setUser(undefined)
 	}, [])
 
+	const authorized = useCallback((libraryId: string) => {
+		if (user?.admin_access) return true
+		if (user?.library_access?.includes(libraryId)) return true
+		return false
+	}, [user])
+
 	const value: AuthContext = {
 		user,
 		api,
 		login,
 		logout,
+		isAuthorized: authorized,
 	}
 
 	return <AuthContext.Provider value={value}>
