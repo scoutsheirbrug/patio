@@ -1,5 +1,4 @@
-import { createHashHistory } from 'history'
-import Router, { CustomHistory, route } from 'preact-router'
+import Router, { route } from 'preact-router'
 import { useEffect, useState } from 'preact/hooks'
 import { Action } from './components/Action'
 import { Actionbar } from './components/Actionbar'
@@ -30,8 +29,6 @@ export function App() {
 		}
 	}, [api, user, libraryId])
 
-	const history = createHashHistory() as unknown as CustomHistory
-
 	return <main class="p-6">
 		<Actionbar>
 			<div class="flex">
@@ -48,7 +45,7 @@ export function App() {
 			<LoginPopup />
 		</Actionbar>
 		<div class="mb-4" />
-		<Router history={history}>
+		<Router>
 			<HomePage path="/" />
 			<AdminPage path="/admin" />
 			<LibraryPage path="/:libraryId" />
