@@ -96,9 +96,9 @@ export function Album({ library, album, photo }: Props) {
 
 	const onViewPhoto = useCallback((id: string | undefined, e?: MouseEvent) => {
 		if (id === undefined) {
-			route(`/${library.id}/${album.id}`)
+			route(`/${library.id}/${album.slug ?? album.id}`)
 		} else {
-			route(`/${library.id}/${album.id}/${id}`)
+			route(`/${library.id}/${album.slug ?? album.id}/${id}`)
 		}
 		e?.stopPropagation()
 	}, [library, album])
@@ -229,10 +229,10 @@ export function Album({ library, album, photo }: Props) {
 			</Actionbar>
 		</div>
 		<div ref={dragArea} class="flex flex-wrap gap-1 mt-2" onMouseMove={authorized ? dragMove : undefined} onTouchMove={authorized ? dragMove : undefined}>
-			{dragSortedPhotos.map(p => <Link key={p.id} class="photo-container relative" href={authorized ? undefined : `/${library.id}/${album.id}/${p.id}`} onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
+			{dragSortedPhotos.map(p => <Link key={p.id} class="photo-container relative" href={authorized ? undefined : `/${library.id}/${album.slug ?? album.id}/${p.id}`} onMouseDown={authorized ? (() => dragStart(p.id)) : undefined} onTouchStart={authorized ? (() => dragStart(p.id)) : undefined}>
 				<img class={`absolute w-full h-full select-none object-cover pointer-events-none bg-gray-100 transition-transform ${p.id === dragId || selectedIds.includes(p.id) ? 'scale-90' : ''}`} src={api.getPhotoUrl(p.id, 'thumbnail')} alt="" />
 				<div class={`absolute w-full h-full pointer-events-none ${selectedIds.includes(p.id) ? 'bg-blue-500 bg-opacity-40' : ''}`} />
-				{authorized && <Link class="absolute w-8 h-8 top-[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" href={`/${library.id}/${album.id}/${p.id}`} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</Link>}
+				{authorized && <Link class="absolute w-8 h-8 top-[2px] right-[2px] flex justify-center items-center fill-white bg-black bg-opacity-30 rounded-md cursor-pointer hover:bg-opacity-50 transition-opacity" href={`/${library.id}/${album.slug ?? album.id}/${p.id}`} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} >{Icons.screen_full}</Link>}
 			</Link>)}
 			{uploadProgress.map(progress => <div class="photo-container relative">
 				{progress.preview === undefined

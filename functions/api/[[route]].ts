@@ -18,6 +18,14 @@ function generateId(length: number) {
 		.padEnd(length, '0')
 }
 
+function createSlug(name: string) {
+	return name.toLocaleLowerCase()
+		.replace(/[^a-z0-9]/g, '-')
+		.replace(/\-\-+/g, '-')
+		.replace(/^\-/, '')
+		.replace(/\-$/, '')
+}
+
 type Env = {
 	KV: KVNamespace,
 	BUCKET: R2Bucket,
@@ -79,6 +87,7 @@ function safeLibrary(library: Library, actor: Actor) {
 type Album<P = Photo> = {
 	id: string,
 	name: string,
+	slug?: string,
 	cover?: string,
 	public: boolean,
 	created_by: string,
@@ -421,6 +430,7 @@ app.delete('/library/:id', async (c) => {
 
 const postAlbumSchema = z.object({
 	name: z.string(),
+	slug: z.string().optional(),
 	public: z.boolean().optional(),
 })
 app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) => {
@@ -432,10 +442,15 @@ app.post('/album', getLibrary, zValidator('json', postAlbumSchema), async (c) =>
 	if (library.albums.find(a => a.name === body.name)) {
 		return c.text(`Album with name "${body.name}" already exists`, 400)
 	}
+	const slug = body.slug ?? createSlug(body.name)
+	if (library.albums.find(a => a.slug === slug)) {
+		return c.text(`Album with slug "${slug}" already exists`, 400)
+	}
 	const albumId = generateId(16)
 	const album: Album = {
 		id: albumId,
 		name: body.name,
+		slug: slug,
 		public: body.public ?? false,
 		created_by: user.username,
 		timestamp: new Date().toISOString(),
@@ -465,7 +480,20 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		return c.text(`Album "${albumId}" not found`, 404)
 	}
 	if (body.name) {
+		if (library.albums.find(a => a !== album && a.name === body.name)) {
+			return c.text(`Album with name "${body.name}" already exists`, 400)
+		}
 		album.name = body.name
+	}
+	if (album.slug === undefined && body.slug === undefined) {
+		// migrate existing albums, to be removed
+		body.slug = createSlug(album.name)
+	}
+	if (body.slug) {
+		if (library.albums.find(a => a !== album && a.slug === body.slug)) {
+			return c.text(`Album with slug "${body.slug}" already exists`, 400)
+		}
+		album.slug = body.slug
 	}
 	if (body.photos !== undefined) {
 		const deletedPhotos = album.photos.filter(p => !body.photos!.find(q => q.id === p.id))

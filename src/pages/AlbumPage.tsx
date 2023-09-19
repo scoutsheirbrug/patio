@@ -1,3 +1,4 @@
+import { route } from 'preact-router'
 import { useEffect, useMemo } from 'preact/hooks'
 import { ApiLibrary } from '../api'
 import { Album } from '../components/Album'
@@ -13,11 +14,14 @@ export function AlbumPage(props: Props) {
 	useEffect(() => {
 		if (targetLibraryId !== currentLibraryId) changeLibraryId(targetLibraryId)
 	}, [targetLibraryId, currentLibraryId, changeLibraryId])
-	if (library.id !== targetLibraryId || library.albums === undefined) return <></>
+	if (library.id !== targetLibraryId || library.albums === undefined) return <>Loading library...</>
 
 	const album = useMemo(() => {
-		return library.albums?.find(a => a.id === albumId)
+		return library.albums?.find(a => a.id === albumId || a.slug === albumId)
 	}, [library, albumId])
+	useEffect(() => {
+		if (album === undefined) route(`/${library.id}`)
+	}, [album])
 	if (album === undefined) return <></>
 
 	const photo = useMemo(() => {

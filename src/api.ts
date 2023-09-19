@@ -16,6 +16,7 @@ export interface ApiLibrary {
 export interface ApiAlbum {
 	id: string,
 	name: string,
+	slug?: string,
 	cover: string | null,
 	public: boolean,
 	timestamp?: string,
