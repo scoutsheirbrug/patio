@@ -514,8 +514,7 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 			if (album.cover === photo.id) {
 				album.cover = undefined
 			}
-			await c.env.BUCKET.delete(photo.id)
-			await c.env.BUCKET.delete(`thumb_${photo.id}`)
+			await c.env.BUCKET.delete([photo.id, `thumb_${photo.id}`, `preview_${photo.id}`])
 		}
 	}
 	if (body.cover && album.photos.some(p => p.id === body.cover)) {
