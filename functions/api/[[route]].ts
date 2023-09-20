@@ -532,7 +532,7 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		// migrate existing albums, to be removed
 		album.date = new Date(album.timestamp).toISOString().substring(0, 10)
 	}
-	library.albums.sort((a, b) => new Date(a.date ?? a.timestamp).getTime() - new Date(b.date ?? b.timestamp).getTime())
+	library.albums.sort((a, b) => new Date(b.date ?? b.timestamp).getTime() - new Date(a.date ?? a.timestamp).getTime())
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
 	return c.json(safeAlbum(album, user))
 })
