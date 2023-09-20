@@ -79,19 +79,19 @@ export function Album({ library, album, photo }: Props) {
 		if (files.length === 0) return
 		setUploadProgress(files.map(() => ({ loading: true })))
 		try {
-			const results = await Promise.allSettled(files.map(async (original, i) => {
-				const { processed, thumbnail, preview } = await processPhoto(original)
-				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
-				const photo = await api.postPhoto(library.id, { original: processed, thumbnail, preview })
-				setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
-				return photo
-			}))
-			results.forEach((p, i) => {
-				if (p.status === 'rejected') {
-					console.error(`Failed to process photo ${files[i].name}: ${p.reason}`)
+			const photos: ApiPhoto[] = []
+			for (let i = 0; i < files.length; i += 1) {
+				const file = files[i]
+				try {
+					const { processed, thumbnail, preview } = await processPhoto(file)
+					setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: true, preview: URL.createObjectURL(thumbnail)}) : p))
+					const photo = await api.postPhoto(library.id, { original: processed, thumbnail, preview })
+					setUploadProgress(progress => progress.map((p, j) => i === j ? ({ loading: false, preview: p.preview }) : p))
+					photos.push(photo)
+				} catch (e) {
+					console.error(`Failed to process photo ${file.name}:`, e)
 				}
-			})
-			const photos = results.flatMap(p => p.status === 'fulfilled' ? [p.value] : [])
+			}
 			if (photos.length > 0) {
 				await api.patchAlbum(library.id, album.id, { photos: [...album.photos, ...photos] })
 				changeAlbum(album.id, { photos: [...album.photos, ...photos], cover: !album.cover ? photos[0].id : album.cover })
