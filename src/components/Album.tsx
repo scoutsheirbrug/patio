@@ -63,7 +63,7 @@ export function Album({ library, album, photo }: Props) {
 	const onDeletePhotos = useCallback(async (ids: string[]) => {
 		const remainingPhotos = album.photos.filter(p => !ids.includes(p.id))
 		if (ids.length > 1) {
-			const confirmed = confirm(`Weet je zeker dat je ${album.photos.length} foto's definitief wilt verwijderen?`)
+			const confirmed = confirm(`Weet je zeker dat je ${ids.length} foto's definitief wilt verwijderen?`)
       if (!confirmed) return
 		}
 		await api.patchAlbum(library.id, album.id, { photos: remainingPhotos })
@@ -210,10 +210,10 @@ export function Album({ library, album, photo }: Props) {
 	}, [])
 
 	return <>
-		<Actionbar nowrap>
+		<div class="flex gap-y-1 flex-col md:flex-row">
 			<EditableText class="font-bold text-2xl w-full" value={album.name} onChange={onRename} editable={authorized} />
-			{authorized && <>
-				<div class="ml-auto"></div>
+			{authorized && <div class="flex gap-4 gap-y-1 flex-wrap md:flex-nowrap">
+				<div class="ml-auto hidden md:block"></div>
 				<Action icon="calendar" clickable>
 					<EditableText class="max-w-[100px]" value={new Date(album.date ?? new Date()).toLocaleDateString('nl-BE')} onChange={onChangeDate} editable nopencil />
 				</Action>
@@ -221,8 +221,8 @@ export function Album({ library, album, photo }: Props) {
 					{album.public ? 'Openbaar' : 'Verborgen'}
 				</Action>
 				<Action icon="trash" onClick={onDeleteAlbum} danger>Verwijder album</Action>
-			</>}
-		</Actionbar>
+			</div>}
+		</div>
 		<div class={`py-2 ${!photo && authorized ? 'sticky bg-white z-10 top-0' : ''}`} onMouseUp={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
 			<Actionbar>
 				<span>{album.photos.length} Foto's</span>
