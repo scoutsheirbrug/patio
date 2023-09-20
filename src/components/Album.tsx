@@ -260,7 +260,7 @@ export function Album({ library, album, photo }: Props) {
 				</div>
 			</div>}
 		</div>
-		{photo && <div class="fixed top-0 left-0 w-full h-full p-2 flex items-center justify-center bg-black bg-opacity-80" onClick={() => route(`/${library.id}/${album.id}`)}>
+		{photo && <div class="fixed top-0 left-0 w-full h-full p-2 flex items-center justify-center bg-black bg-opacity-80" onClick={() => route(`/${library.id}/${album.slug ?? album.id}`)}>
 			<ProgressiveImage class="w-auto max-h-full" width={1024} initial={api.getPhotoUrl(photo.id, 'preview')} detailed={api.getPhotoUrl(photo.id, 'original')} onClick={e => e.stopPropagation()} />
 			<DetailActions album={album.photos.map(p => p.id)} id={photo.id} changeId={onViewPhoto} downloadUrl={api.getPhotoUrl(photo.id, 'original')} />
 		</div>}
