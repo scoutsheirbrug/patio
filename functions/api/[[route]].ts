@@ -547,6 +547,9 @@ app.delete('/album/:id', getLibrary, async (c) => {
 	if (albumIndex === -1) {
 		return c.text(`Album "${albumId}" not found`, 404)
 	}
+	for (const photo of library.albums[albumIndex].photos) {
+		await c.env.BUCKET.delete([photo.id, `thumb_${photo.id}`, `preview_${photo.id}`])
+	}
 	library.albums.splice(albumIndex, 1)
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
 	return c.text('')
