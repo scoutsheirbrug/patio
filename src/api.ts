@@ -46,7 +46,10 @@ export class Api {
 				username,
 				password,
 			}),
-			headers: this.authHeaders,
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
 		})
 		return await response.json() as { token: string, user: ApiUser }
 	}
