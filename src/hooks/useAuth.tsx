@@ -43,7 +43,7 @@ type Props = {
 	children: ComponentChildren,
 }
 export function AuthProvider({ children }: Props) {
-	const [token, setToken] = useState<string | undefined>(verifyToken(localStorage.getItem('fotos_token') ?? undefined))
+	const [token, setToken] = useState<string | undefined>(verifyToken(localStorage.getItem('patio_token') ?? undefined))
 	const [user, setUser] = useState<(Partial<ApiUser > & { username: string }) | undefined>(decodeToken(token))
 
 	const api = useMemo(() => {
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: Props) {
 	const login = useCallback(async (username: string, password: string) => {
 		try {
 			const result = await api.login(username, password)
-			localStorage.setItem('fotos_token', result.token)
+			localStorage.setItem('patio_token', result.token)
 			setToken(result.token)
 			setUser(result.user)
 			return true
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: Props) {
 	}, [])
 
 	const logout = useCallback(() => {
-		localStorage.removeItem('fotos_token')
+		localStorage.removeItem('patio_token')
 		setToken(undefined)
 		setUser(undefined)
 	}, [])
