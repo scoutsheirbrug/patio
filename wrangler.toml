@@ -1,7 +1,7 @@
 kv_namespaces = [
-  { binding = "KV", id = "998f9a4d431847f694da0d2d9cd027be", preview_id = "9b1665fea67b446495de66880ffa9a6a" }
+  { binding = "KV", id = "b686270fac8d49eaac70bb99df73fa6e", preview_id = "d3c77ad11ed149579af4faddd04da1e3" }
 ]
 
 r2_buckets  = [
-  { binding = "BUCKET", bucket_name = "scoutsheirbrug", preview_bucket_name = "scoutsheirbrug-preview" }
+  { binding = "BUCKET", bucket_name = "patio", preview_bucket_name = "patio-dev" }
 ]
