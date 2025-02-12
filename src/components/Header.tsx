@@ -1,3 +1,4 @@
+import { route } from 'preact-router'
 import { useCallback, useEffect, useState } from 'preact/hooks'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
@@ -52,7 +53,7 @@ export function Header() {
 				{libraries.length > 1 && <>
 					<Action icon="chevron_down" onClick={() => setLibrariesShown(!librariesShown)} />
 					{librariesShown && <div class="absolute z-20 top-full left-0 mt-2 p-4 rounded-md bg-gray-200 shadow-md flex flex-col gap-2 items-start">
-						{libraries.map(id => <Action key={id} link={`/${id}`} bold={id === libraryId}>{id}</Action>)}
+						{libraries.map(id => <Action key={id} onClick={() => {route(`/${id}`); setLibrariesShown(false)}} bold={id === libraryId}>{id}</Action>)}
 					</div>}
 				</>}
 			</div>

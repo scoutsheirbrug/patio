@@ -2,6 +2,8 @@ import { ComponentChildren, createContext } from 'preact'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'preact/hooks'
 import { Api, ApiUser } from '../api'
 
+const TOKEN_KEY = 'patio_token'
+
 type AuthContext = {
 	user: (Partial<ApiUser > & { username: string }) | undefined,
 	api: Api,
@@ -43,7 +45,7 @@ type Props = {
 	children: ComponentChildren,
 }
 export function AuthProvider({ children }: Props) {
-	const [token, setToken] = useState<string | undefined>(verifyToken(localStorage.getItem('patio_token') ?? undefined))
+	const [token, setToken] = useState<string | undefined>(verifyToken(localStorage.getItem(TOKEN_KEY) ?? undefined))
 	const [user, setUser] = useState<(Partial<ApiUser > & { username: string }) | undefined>(decodeToken(token))
 
 	const api = useMemo(() => {
@@ -61,7 +63,7 @@ export function AuthProvider({ children }: Props) {
 	const login = useCallback(async (username: string, password: string) => {
 		try {
 			const result = await api.login(username, password)
-			localStorage.setItem('patio_token', result.token)
+			localStorage.setItem(TOKEN_KEY, result.token)
 			setToken(result.token)
 			setUser(result.user)
 			return true
@@ -71,7 +73,7 @@ export function AuthProvider({ children }: Props) {
 	}, [])
 
 	const logout = useCallback(() => {
-		localStorage.removeItem('patio_token')
+		localStorage.removeItem(TOKEN_KEY)
 		setToken(undefined)
 		setUser(undefined)
 	}, [])

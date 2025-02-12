@@ -2,26 +2,26 @@ import { useCallback, useEffect, useRef } from 'preact/hooks'
 import { Icons } from './Icons'
 
 type Props = {
-	album: string[]
+	ids: string[]
 	id: string
 	changeId: (id: string | undefined) => void
 	downloadUrl: string
 }
-export function DetailActions({album, id, changeId, downloadUrl }: Props) {
+export function DetailActions({ids, id, changeId, downloadUrl }: Props) {
 	
 	const prev = useCallback(() => {
-		const index = album.findIndex(p => p === id)
+		const index = ids.findIndex(p => p === id)
 		if (index !== -1 && index > 0) {
-			changeId(album[index - 1])
+			changeId(ids[index - 1])
 		}
-	}, [album, id, changeId])
+	}, [ids, id, changeId])
 
 	const next = useCallback(() => {
-		const index = album.findIndex(p => p === id)
-		if (index !== -1 && index < album.length - 1) {
-			changeId(album[index + 1])
+		const index = ids.findIndex(p => p === id)
+		if (index !== -1 && index < ids.length - 1) {
+			changeId(ids[index + 1])
 		}
-	}, [album, id, changeId])
+	}, [ids, id, changeId])
 
 	const downloadRef = useRef<HTMLAnchorElement>(null)
 	const download = useCallback(() => {

@@ -10,7 +10,7 @@ import { Icons } from './Icons'
 
 export function AdminPanel({}: { path?: string }) {
 	const { api, user: admin } = useAuth()
-	const { libraryId, changeLibraryId } = useLibrary()
+	const { libraryId, library, changeLibraryId } = useLibrary()
 
 	if (!admin?.admin_access) return <></>
 
@@ -74,6 +74,7 @@ export function AdminPanel({}: { path?: string }) {
 	}, [api])
 
 	const [newLibrary, setNewLibrary] = useState<string>()
+	const [newLibraryType, setNewLibraryType] = useState<string>()
 	const [newUser, setNewUser] = useState<string>()
 	const [newPassword, setNewPassword] = useState<string>(generatePassword())
 	const [newAdmin, setNewAdmin] = useState<boolean>(false)
@@ -91,13 +92,13 @@ export function AdminPanel({}: { path?: string }) {
 	}, [])
 
 	const onAddLibrary = useCallback(() => {
-		if (!newLibrary) return
-		api.postLibrary(newLibrary)
+		if (!newLibrary || !newLibraryType) return
+		api.postLibrary(newLibrary, newLibraryType)
 			.then(l => {
 				setNewLibrary(undefined)
 				setLibraries(libraries => [...libraries, l.id])
 			})
-	}, [api, newLibrary])
+	}, [api, newLibrary, newLibraryType])
 
 	const toggleNewUserlibrary = useCallback((id: string) => {
 		if (newUserLibraries.includes(id)) {
@@ -122,6 +123,10 @@ export function AdminPanel({}: { path?: string }) {
 			{newLibrary !== undefined ? <>
 				<div class="text-gray-800 text-sm">Collectie ID</div>
 				<EditableText key="new-library" class="font-bold text-2xl" value={newLibrary} onChange={setNewLibrary} editable autofocus />
+				<select key="new-library-type" value={newLibraryType} onChange={e => setNewLibraryType((e.target as HTMLSelectElement).value)}>
+					<option value="albums">Album collectie</option>
+					<option value="photos">Foto collectie</option>
+				</select>
 				<button class="flex items-center whitespace-nowrap hover:underline gap-1 mt-3" onClick={onAddLibrary}>{Icons.plus}Aanmaken</button>
 			</> : newUser !== undefined ? <>
 				<div class="text-gray-800 text-sm">Gebruikersnaam</div>
@@ -168,6 +173,7 @@ export function AdminPanel({}: { path?: string }) {
 				</>}
 			</> : <>
 				<h2 class="font-bold text-2xl">{libraryId}</h2>
+				<p>Type: {library.type}</p>
 				<Actionbar>
 					<Action icon="trash" onClick={onDeleteLibrary} danger>Verwijder collectie</Action>
 				</Actionbar>

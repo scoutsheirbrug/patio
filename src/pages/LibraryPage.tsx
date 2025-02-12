@@ -13,7 +13,7 @@ export function LibraryPage(props: Props) {
 	useEffect(() => {
 		if (targetLibraryId !== currentLibraryId) changeLibraryId(targetLibraryId)
 	}, [targetLibraryId, currentLibraryId, changeLibraryId])
-	if (library.id !== targetLibraryId || library.albums === undefined) return <>Loading library...</>
+	if (library.id !== targetLibraryId || library.type === undefined) return <>Loading library...</>
 
 	return <Library library={library as ApiLibrary} />
 }

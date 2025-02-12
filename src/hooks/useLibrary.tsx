@@ -45,6 +45,9 @@ export function LibraryProvider({ children }: Props) {
 
 	const changeAlbum = useCallback((id: string, changes: Partial<ApiAlbum>) => {
 		if (library === undefined) return
+		if (library.type !== 'albums') {
+			throw new TypeError('Library is not of type "albums"')
+		}
 		changeLibrary({ albums: library.albums?.map(a => a.id === id ? { ...a, ...changes } : a) })
 	}, [library])
 

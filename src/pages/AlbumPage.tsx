@@ -8,8 +8,12 @@ type Props = {
 	path: string,
 }
 export function AlbumPage(props: Props) {
-	const { libraryId: targetLibraryId, albumId, photoId } = props as unknown as { libraryId: string, albumId: string, photoId?: string }
+	const { libraryId: targetLibraryId, albumId } = props as unknown as { libraryId: string, albumId: string }
 	const { libraryId: currentLibraryId, library, changeLibraryId } = useLibrary()
+
+	if (library.type !== 'albums') {
+		return <></>
+	}
 
 	useEffect(() => {
 		if (targetLibraryId !== currentLibraryId) changeLibraryId(targetLibraryId)
@@ -24,14 +28,5 @@ export function AlbumPage(props: Props) {
 	}, [album])
 	if (album === undefined) return <></>
 
-	const photo = useMemo(() => {
-		if (photoId === undefined) return undefined
-		return album.photos.find(p => p.id === photoId)
-	}, [album, photoId])
-
-	useEffect(() => {
-		document.documentElement.classList.toggle('overflow-hidden', photo !== undefined)
-	}, [photo])
-
-	return <Album library={library as ApiLibrary} album={album} photo={photo} />
+	return <Album library={library as ApiLibrary & { type: 'albums' }} album={album} />
 }
