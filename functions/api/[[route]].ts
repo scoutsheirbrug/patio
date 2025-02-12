@@ -489,10 +489,6 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		}
 		album.name = body.name
 	}
-	if (album.slug === undefined && body.slug === undefined) {
-		// migrate existing albums, to be removed
-		body.slug = createSlug(album.name)
-	}
 	if (body.slug) {
 		if (library.albums.find(a => a !== album && a.slug === body.slug)) {
 			return c.text(`Album with slug "${body.slug}" already exists`, 400)
@@ -527,10 +523,6 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 	}
 	if (body.date) {
 		album.date = body.date
-	}
-	if (album.date === undefined) {
-		// migrate existing albums, to be removed
-		album.date = new Date(album.timestamp).toISOString().substring(0, 10)
 	}
 	library.albums.sort((a, b) => new Date(b.date ?? b.timestamp).getTime() - new Date(a.date ?? a.timestamp).getTime())
 	await c.env.KV.put(`library-${library.id}`, JSON.stringify(library))
