@@ -1,3 +1,4 @@
+import { Link, route } from 'preact-router'
 import { useCallback, useEffect, useState } from 'preact/hooks'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
@@ -6,23 +7,10 @@ import { Actionbar } from './Actionbar'
 import { Icons } from './Icons'
 
 export function Header() {
-	const { api, user, login, logout } = useAuth()
-	const { libraryId } = useLibrary()
+	const { user, login, logout } = useAuth()
+	const { libraries, libraryId } = useLibrary()
 
-	const [librariesShown, setLibrariesShown] = useState(false) 
-	const [libraries, setLibraries] = useState<string[]>([])
-	useEffect(() => {
-		if (user?.library_access?.includes(libraryId)) {
-			setLibraries(user.library_access)
-		} else {
-			setLibraries([libraryId, ...user?.library_access ?? []])
-		}
-		if (user?.admin_access) {
-			api.getLibraries().then(l => {
-				setLibraries(l)
-			})
-		}
-	}, [api, user, libraryId])
+	const [librariesShown, setLibrariesShown] = useState(false)
 
 	const [loginShown, setLoginShown] = useState(false)
 	const [username, setUsername] = useState('')
@@ -47,15 +35,19 @@ export function Header() {
 	}, [])
 
 	return <Actionbar>
-			<div class="relative flex gap-1">
+			<Link class="flex gap-1 items-center hover:underline" href="/">
+				{Icons.home}
+				<h1 class="font-bold">Patio</h1>
+			</Link>
+			{libraryId && <div class="relative flex gap-1">
 				<Action icon="repo" link={`/${libraryId}`} bold>{libraryId}</Action>
 				{libraries.length > 1 && <>
 					<Action icon="chevron_down" onClick={() => setLibrariesShown(!librariesShown)} />
 					{librariesShown && <div class="absolute z-20 top-full left-0 mt-2 p-4 rounded-md bg-gray-200 shadow-md flex flex-col gap-2 items-start">
-						{libraries.map(id => <Action key={id} link={`/${id}`} bold={id === libraryId}>{id}</Action>)}
+						{libraries.map(id => <Action key={id} onClick={() => {route(`/${id}`); setLibrariesShown(false)}} bold={id === libraryId}>{id}</Action>)}
 					</div>}
 				</>}
-			</div>
+			</div>}
 			<div class="mx-auto"></div>
 			{user === undefined ? <div class="relative">
 				<Action icon="person" onClick={() => setLoginShown(!loginShown)}>Inloggen</Action>

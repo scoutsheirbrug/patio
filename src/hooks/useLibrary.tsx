@@ -3,13 +3,12 @@ import { useCallback, useContext, useEffect, useState } from 'preact/hooks'
 import { ApiAlbum, ApiLibrary } from '../api'
 import { useAuth } from './useAuth'
 
-const DEFAULT_LIBRARY_ID = 'scoutsheirbrug'
-
 export type LibraryContext = {
-	libraryId: string,
-	library: Partial<ApiLibrary> & { id: string },
+	libraries: string[]
+	libraryId?: string,
+	library?: Partial<ApiLibrary> & { id: string },
 	authorized: boolean,
-	changeLibraryId: (id: string) => void,
+	changeLibraryId: (id: string | undefined) => void,
 	changeLibrary: (changes: Partial<ApiLibrary>) => void,
 	changeAlbum: (id: string, changes: Partial<ApiAlbum>) => void,
 }
@@ -29,28 +28,43 @@ type Props = {
 }
 export function LibraryProvider({ children }: Props) {
 	const { api } = useAuth()
-	const [libraryId, setLibraryId] = useState(DEFAULT_LIBRARY_ID)
-	const [library, setLibrary] = useState<Partial<ApiLibrary> & { id: string }>({ id: libraryId })
+	const [libraryId, setLibraryId] = useState<string>()
+	const [library, setLibrary] = useState<ApiLibrary>()
+
+	const [libraries, setLibraries] = useState<string[]>([])
+	useEffect(() => {
+		api.getLibraries().then(l => {
+			setLibraries(l)
+		})
+	}, [api])
 
 	useEffect(() => {
+		if (!libraryId) {
+			setLibrary(undefined)
+			return
+		}
 		api.getLibrary(libraryId)
 			.then(library => setLibrary(library))
-			.catch(() => setLibrary({ id: libraryId }))
+			.catch(() => setLibrary(undefined))
 	}, [api, libraryId])
 
 	const changeLibrary = useCallback((changes: Partial<ApiLibrary>) => {
 		if (library === undefined) return
-		setLibrary({ ...library, ...changes })
+		setLibrary({ ...library, ...changes } as ApiLibrary)
 	}, [library])
 
 	const changeAlbum = useCallback((id: string, changes: Partial<ApiAlbum>) => {
 		if (library === undefined) return
+		if (library.type !== 'albums') {
+			throw new TypeError('Library is not of type "albums"')
+		}
 		changeLibrary({ albums: library.albums?.map(a => a.id === id ? { ...a, ...changes } : a) })
 	}, [library])
 
-	const authorized = library.authorized ?? false
+	const authorized = library?.authorized ?? false
 
 	const value: LibraryContext = {
+		libraries,
 		libraryId,
 		library,
 		authorized,

@@ -6,11 +6,16 @@ export interface ApiUser {
 	admin_access: boolean,
 }
 
-export interface ApiLibrary {
+export type ApiLibrary = {
 	id: string,
 	authorized: boolean,
+} & ({
+	type: 'albums',
 	albums: ApiAlbum[],
-}
+} | {
+	type: 'photos',
+	photos: ApiPhoto[],
+})
 
 export interface ApiAlbum {
 	id: string,
@@ -24,7 +29,6 @@ export interface ApiAlbum {
 
 export interface ApiPhoto {
 	id: string,
-	author: string | null,
 }
 
 export class Api {
@@ -125,7 +129,7 @@ export class Api {
 		})
 	}
 
-	async postLibrary(libraryId: string) {
+	async postLibrary(libraryId: string, type: string) {
 		const response = await fetch(`${API_URL}/library`, {
 			method: 'POST',
 			headers: {
@@ -134,7 +138,20 @@ export class Api {
 			},
 			body: JSON.stringify({
 				id: libraryId,
+				type: type,
 			}),
+		})
+		return await response.json() as ApiLibrary
+	}
+	
+	async patchLibrary(libraryId: string, changes: Partial<ApiLibrary>) {
+		const response = await fetch(`${API_URL}/library?library=${libraryId}`, {
+			method: 'PATCH',
+			headers: {
+				...this.authHeaders,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(changes),
 		})
 		return await response.json() as ApiLibrary
 	}
@@ -172,12 +189,12 @@ export class Api {
 		})
 	}
 	
-	async postPhoto(libraryId: string, photos: { original: Blob, thumbnail: Blob, preview: Blob }) {
+	async postPhoto(photos: { original: Blob, thumbnail: Blob, preview: Blob }) {
 		const data = new FormData()
 		data.append("original", photos.original)
 		data.append("thumbnail", photos.thumbnail)
 		data.append("preview", photos.preview)
-		const response = await fetch(`${API_URL}/photo?library=${libraryId}`, {
+		const response = await fetch(`${API_URL}/photo`, {
 			method: 'POST',
 			body: data,
 			headers: this.authHeaders,

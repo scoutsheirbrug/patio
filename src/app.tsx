@@ -13,7 +13,7 @@ export function App() {
 			<HomePage path="/" />
 			<AdminPage path="/admin" />
 			<LibraryPage path="/:libraryId" />
-			<AlbumPage path="/:libraryId/:albumId/:photoId?" />
+			<AlbumPage path="/:libraryId/:albumId" />
 		</Router>
 	</main>
 }
