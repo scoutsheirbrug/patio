@@ -522,7 +522,6 @@ app.patch('/album/:id', getLibrary, zValidator('json', patchAlbumSchema), async 
 		return c.text(`Unauthorized to access library "${library.id}"`, 401)
 	}
 	if (library.type !== 'albums') {
-		console.log(library)
 		return c.text('This library is not of type "albums"', 400)
 	}
 	const body = c.req.valid('json')

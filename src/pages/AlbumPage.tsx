@@ -11,7 +11,7 @@ export function AlbumPage(props: Props) {
 	const { libraryId: targetLibraryId, albumId } = props as unknown as { libraryId: string, albumId: string }
 	const { libraryId: currentLibraryId, library, changeLibraryId } = useLibrary()
 
-	if (library.type !== 'albums') {
+	if (library?.type !== 'albums') {
 		return <></>
 	}
 

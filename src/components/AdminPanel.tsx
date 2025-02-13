@@ -173,7 +173,7 @@ export function AdminPanel({}: { path?: string }) {
 				</>}
 			</> : <>
 				<h2 class="font-bold text-2xl">{libraryId}</h2>
-				<p>Type: {library.type}</p>
+				<p>Type: {library?.type}</p>
 				<Actionbar>
 					<Action icon="trash" onClick={onDeleteLibrary} danger>Verwijder collectie</Action>
 				</Actionbar>

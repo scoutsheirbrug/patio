@@ -17,8 +17,6 @@ export function LibraryPhotos({ library }: Props) {
     changeLibrary({ photos })
   }, [api, library, changeLibrary])
 
-  console.log(library, authorized)
-
   return <div>
     <PhotoCollection authorized={authorized} photos={library.photos} changePhotos={changePhotos} />
   </div>

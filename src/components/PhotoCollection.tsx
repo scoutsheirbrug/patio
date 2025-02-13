@@ -33,7 +33,6 @@ export function PhotoCollection({ authorized, photos, changePhotos, selectedActi
 			const confirmed = confirm(`Weet je zeker dat je ${ids.length} foto's definitief wilt verwijderen?`)
 			if (!confirmed) return
 		}
-		console.log('DELETE', ids, remainingPhotos)
 		await changePhotos(remainingPhotos)
 	}, [photos, changePhotos])
 

@@ -1,4 +1,4 @@
-import { route } from 'preact-router'
+import { Link, route } from 'preact-router'
 import { useCallback, useEffect, useState } from 'preact/hooks'
 import { useAuth } from '../hooks/useAuth'
 import { useLibrary } from '../hooks/useLibrary'
@@ -7,23 +7,10 @@ import { Actionbar } from './Actionbar'
 import { Icons } from './Icons'
 
 export function Header() {
-	const { api, user, login, logout } = useAuth()
-	const { libraryId } = useLibrary()
+	const { user, login, logout } = useAuth()
+	const { libraries, libraryId } = useLibrary()
 
-	const [librariesShown, setLibrariesShown] = useState(false) 
-	const [libraries, setLibraries] = useState<string[]>([])
-	useEffect(() => {
-		if (user?.library_access?.includes(libraryId)) {
-			setLibraries(user.library_access)
-		} else {
-			setLibraries([libraryId, ...user?.library_access ?? []])
-		}
-		if (user?.admin_access) {
-			api.getLibraries().then(l => {
-				setLibraries(l)
-			})
-		}
-	}, [api, user, libraryId])
+	const [librariesShown, setLibrariesShown] = useState(false)
 
 	const [loginShown, setLoginShown] = useState(false)
 	const [username, setUsername] = useState('')
@@ -48,7 +35,11 @@ export function Header() {
 	}, [])
 
 	return <Actionbar>
-			<div class="relative flex gap-1">
+			<Link class="flex gap-1 items-center hover:underline" href="/">
+				{Icons.home}
+				<h1 class="font-bold">Patio</h1>
+			</Link>
+			{libraryId && <div class="relative flex gap-1">
 				<Action icon="repo" link={`/${libraryId}`} bold>{libraryId}</Action>
 				{libraries.length > 1 && <>
 					<Action icon="chevron_down" onClick={() => setLibrariesShown(!librariesShown)} />
@@ -56,7 +47,7 @@ export function Header() {
 						{libraries.map(id => <Action key={id} onClick={() => {route(`/${id}`); setLibrariesShown(false)}} bold={id === libraryId}>{id}</Action>)}
 					</div>}
 				</>}
-			</div>
+			</div>}
 			<div class="mx-auto"></div>
 			{user === undefined ? <div class="relative">
 				<Action icon="person" onClick={() => setLoginShown(!loginShown)}>Inloggen</Action>
